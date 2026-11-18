@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22%3E%3Crect width=%2224%22 height=%2224%22 rx=%225%22 fill=%22%236a2c91%22/%3E%3C/svg%3E">
+<title>Violência contra a mulher PB</title>
+<link rel="stylesheet" href="vendor/leaflet.css">
+<link rel="stylesheet" href="css/painel.css">
+</head>
+<body>
+<a class="pular" href="#conteudo" tabindex="0">Pular para o conteúdo</a>
+<header>
+  <div>
+    <h1>Violência contra a mulher na Paraíba</h1>
+    <p>Notificações do SINAN por município onde a mulher mora · 2019 a 2024 · apoio a gestores públicos</p>
+  </div>
+  <nav class="tabs" role="tablist" aria-label="Telas do painel">
+    <button role="tab" aria-selected="true" aria-controls="v-mapa" data-v="mapa" id="tab-mapa">Mapa</button>
+    <button role="tab" aria-selected="false" aria-controls="v-analise" data-v="analise" id="tab-analise" tabindex="-1">Análise</button>
+    <button role="tab" aria-selected="false" aria-controls="v-como-calcular" data-v="como-calcular" id="tab-como-calcular" tabindex="-1">Como calcular</button>
+  </nav>
+  <button class="btn" id="copiarLink" type="button" title="Copia o endereço desta tela para mandar a alguém">Copiar link</button>
+</header>
+<div class="aviso">Os números mostram casos <b>notificados</b> pelos serviços de saúde, não todos os casos que acontecem. Fonte: SINAN/TABNET (Ministério da Saúde) e Censo 2022 (IBGE).</div>
+<main id="conteudo" tabindex="-1">
+  <section class="view on" id="v-mapa" role="tabpanel" aria-labelledby="tab-mapa">
+    <aside aria-label="Filtros e ranking">
+      <div class="filtros">
+      <label class="ctl" for="ind">Indicador</label>
+      <select id="ind">
+        <option value="taxa">Taxa por 100 mil mulheres</option>
+        <option value="casos">Casos notificados</option>
+        <option value="oe">Observado ÷ esperado</option>
+      </select>
+      <p class="hint" id="indhint"></p>
+      <label class="ctl" for="tipo">Tipo de violência</label>
+      <select id="tipo">
+        <option value="total">Todos os tipos (exceto autoprovocada)</option>
+        <option value="fisica">Física</option>
+        <option value="psicologica">Psicológica/moral</option>
+        <option value="sexual">Sexual</option>
+      </select>
+      <label class="ctl" for="per">Período</label>
+      <select id="per"></select>
+      <label class="ctl" for="reg">Região de saúde</label>
+      <select id="reg" aria-describedby="reghint"></select>
+      <p class="hint" id="reghint">Recorta o mapa, o ranking e a tabela. As cores seguem a escala do estado.</p>
+      <label class="ctl" for="busca">Buscar município</label>
+      <input type="search" id="busca" list="lista" placeholder="Ex.: Sousa (sem acento também serve)" autocomplete="off">
+      <datalist id="lista"></datalist>
+      <p class="hint" id="buscaMsg" aria-live="polite"></p>
+      <div class="btnrow" style="margin-top:0">
+        <button class="btn peq" id="verTabela" type="button" aria-pressed="false">Ver como tabela</button>
+        <button class="btn peq" id="abrirComparar" type="button">Comparar municípios</button>
+      </div>
+      </div>
+      <div class="rkbox">
+      <div class="rktabs" role="group" aria-label="Ranking">
+        <button type="button" aria-pressed="true" data-r="maiores" id="rk-maiores">10 maiores</button>
+        <button type="button" aria-pressed="false" data-r="menores" id="rk-menores">10 menores</button>
+      </div>
+      <ol id="rk" aria-label="10 maiores valores"></ol>
+      <p class="hint" style="margin-top:8px" id="rknota"></p>
+      </div>
+    </aside>
+    <div id="mapwrap">
+      <h2 class="maptitle" id="mapatitulo" aria-live="polite" tabindex="-1"></h2>
+      <div id="map" role="region" aria-label="Mapa dos municípios da Paraíba. Tab percorre os municípios em ordem alfabética e Enter abre a ficha. A busca, o ranking e Ver como tabela também servem."></div>
+      <div class="legend" id="leg"></div>
+      <div id="maptab" aria-label="Tabela do mapa"></div>
+      <div id="painel" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section class="view" id="v-analise" role="tabpanel" aria-labelledby="tab-analise"><div class="scroll"><div class="wrap">
+    <div class="kpis" id="kpis"></div>
+    <div class="card">
+      <h2>O que os dados mostram</h2>
+      <p class="desc">Leituras diretas dos cinco indicadores. Cada uma diz o número que a sustenta.</p>
+      <ul class="concl" id="concl"></ul>
+    </div>
+    <div class="grid2">
+      <div class="card"><h2>Casos por ano e tipo de violência</h2><p class="desc">Paraíba, 2019 a 2024. Uma notificação pode ter mais de um tipo.</p><div id="g-serie"></div></div>
+      <div class="card"><h2>Casos por faixa etária</h2><p class="desc">Paraíba, soma de 2019 a 2024, todos os tipos.</p><div id="g-faixa"></div></div>
+    </div>
+    <div class="card"><h2>Casos por tipo de violência</h2><p class="desc">Paraíba, soma de 2019 a 2024, com a taxa média anual por 100 mil mulheres.</p><div id="g-tipo" style="max-width:640px"></div></div>
+    <div class="card">
+      <h2>Tabela dos municípios</h2>
+      <p class="desc">2019 a 2024. Clique no título da coluna para ordenar e na linha para ver o município no mapa. O CSV traz os 223 municípios do tipo escolhido.</p>
+      <div class="tools" style="margin-bottom:10px">
+        <select id="ttipo" aria-label="Tipo de violência da tabela">
+          <option value="total">Todos os tipos</option><option value="fisica">Física</option>
+          <option value="psicologica">Psicológica/moral</option><option value="sexual">Sexual</option>
+        </select>
+        <input type="search" id="tbusca" placeholder="Filtrar município" aria-label="Filtrar município">
+        <button class="btn peq" id="baixarCsv" type="button">Baixar CSV</button>
+      </div>
+      <div class="tbl"><table id="tab"><thead><tr>
+        <th data-k="nome" tabindex="0">Município</th><th data-k="pop" tabindex="0">Mulheres</th><th data-k="casos" tabindex="0">Casos</th>
+        <th data-k="taxa" tabindex="0">Taxa / 100 mil / ano</th><th data-k="oe" tabindex="0">Observado ÷ esperado</th>
+      </tr></thead><tbody></tbody></table></div>
+    </div>
+  </div></div></section>
+
+  <section class="view" id="v-como-calcular" role="tabpanel" aria-labelledby="tab-como-calcular"><div class="scroll"><div class="wrap ind" id="indtxt"></div></div></section>
+</main>
+<footer>TCC · Sistemas de Informação · UFPB/CCAE. Dados públicos e agregados, sem identificação de pessoas.</footer>
+<div id="tip" aria-hidden="true"></div>
+
+<dialog id="cmp" aria-labelledby="cmpT">
+  <button class="x" type="button" id="cmpFechar" aria-label="Fechar comparação">×</button>
+  <h2 id="cmpT">Comparar municípios</h2>
+  <p class="sub" id="cmpSub"></p>
+  <div class="cmpsel">
+    <label>Município 1<input type="text" list="lista" id="cmp1" autocomplete="off"></label>
+    <label>Município 2<input type="text" list="lista" id="cmp2" autocomplete="off"></label>
+    <label>Município 3 (opcional)<input type="text" list="lista" id="cmp3" autocomplete="off"></label>
+  </div>
+  <div id="cmpRes" aria-live="polite"></div>
+</dialog>
+
+<div id="impressao"></div>
+
+<!-- Scripts comuns (não módulos ES): assim o painel também abre com duplo clique, sem servidor -->
+<script src="vendor/leaflet.js"></script>
+<script src="js/util.js"></script>
+<script src="js/dados.js"></script>
+<script src="js/calculo.js"></script>
+<script src="js/mapa.js"></script>
+<script src="js/analise.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
