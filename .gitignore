@@ -1,0 +1,23 @@
+# Nunca publicar: notas do assistente, prompts, PDFs e arquivos pessoais
+CLAUDE.md
+PROMPT_*.md
+*.pdf
+*.docx
+
+# Ambiente local
+.venv/
+__pycache__/
+*.pyc
+
+# Versões antigas do front (só para uso local)
+backup/
+
+# Capturas: os testes regeram tudo a cada execução. Só as usadas no README vão para o repositório.
+capturas/*
+!capturas/1366_claro_mapa_ficha.png
+!capturas/1366_claro_analise.png
+!capturas/1366_claro_como_calcular.png
+!capturas/1366_escuro_mapa_ficha.png
+!capturas/celular_claro_mapa_ficha.png
+!capturas/regiao_saude_filtro.png
+!capturas/mapa_foco_teclado.png

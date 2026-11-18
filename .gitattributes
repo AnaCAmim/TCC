@@ -1,0 +1,5 @@
+# Arquivos .bat precisam de CRLF para o Windows executá-los corretamente
+*.bat text eol=crlf
+* text=auto
+*.png binary
+*.xlsx binary
