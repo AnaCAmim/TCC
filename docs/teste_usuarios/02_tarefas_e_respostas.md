@@ -41,7 +41,7 @@ Gerado por `testes/gerar_material_teste.py` a partir de `web/dados.json`. Fonte:
 
 **Tarefa:** Você vai levar os dados para uma reunião. Baixe a tabela dos municípios ou imprima a ficha de um município.
 
-**Resposta certa:** Arquivo CSV com 223 municípios (aba Análise → Baixar CSV) ou ficha impressa/salva em PDF (ficha → Imprimir ficha).
+**Resposta certa:** Arquivo CSV com 223 municípios (aba Análise → Baixar tabela (CSV)) ou ficha impressa/salva em PDF (ficha → Imprimir ficha).
 
 **Critério:** Acerto: arquivo baixado ou janela de impressão aberta com a ficha. Tempo-limite sugerido: 3 min.
 
@@ -52,7 +52,9 @@ Gerado por `testes/gerar_material_teste.py` a partir de `web/dados.json`. Fonte:
 | T1 | 2 | Indicador "Observado ÷ esperado" → ranking "10 menores" |
 | T2 | 1 | Buscar município: digitar "Sousa" e Enter (a ficha mostra a taxa, a média do estado e "Notifica menos que a média do estado") |
 | T3 | 1 | Buscar "Campina Grande" e Enter (a ficha escreve "Faixa mais atingida: …") |
-| T4 | 1 | Aba Análise (bloco "O que os dados mostram") |
-| T5 | 2 | Aba Análise → Baixar CSV; ou buscar o município → Imprimir ficha |
+| T4 | 1 | Aba Análise (bloco "Leituras prontas") |
+| T5 | 2 | Aba Análise → Baixar tabela (CSV); ou buscar o município → Imprimir ficha |
+
+Na primeira visita, a tela "Sobre o painel" abre sozinha e fecha com 1 clique (Começar): é 1 ação a mais, só uma vez.
 
 Fonte: `testes/testar_usabilidade.py` (registro em `capturas/piloto_tarefas.json`, gerado pelos testes).

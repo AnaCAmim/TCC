@@ -8,7 +8,7 @@ Painel de indicadores de violência contra a mulher na Paraíba (SINAN 2019–20
 
 - 5 pessoas do público-alvo: gestoras ou técnicos de saúde, assistência social ou políticas para mulheres (plano: `docs/websig_plano.md`, seção 3).
 - Material: este roteiro; `02_tarefas_e_respostas.md` (gabarito, só para quem conduz); `03_questionario_SUS.md`; `04_perguntas_abertas.md`; `05_termo_consentimento.md`; `planilha_registro.xlsx`; cronômetro.
-- Antes de cada sessão: abrir o painel na **página inicial** (Mapa, sem município aberto), num navegador atualizado, tela de pelo menos 1366 px. No remoto, mandar o link e pedir que a pessoa compartilhe a tela.
+- Antes de cada sessão: abrir o painel numa **janela anônima** (assim a tela "Sobre o painel" aparece como na primeira visita), na página inicial, num navegador atualizado, tela de pelo menos 1366 px. No remoto, mandar o link e pedir que a pessoa compartilhe a tela.
 - Código do participante: P01, P02… Não anotar o nome na planilha.
 
 ## Tempo
@@ -33,7 +33,7 @@ Leva uns 20 minutos. Não gravo seu nome. [Ler o termo de consentimento.] Podemo
 
 ## 2. Aquecimento
 
-"Olhe a tela à vontade por um minuto e me diga o que acha que dá para fazer aqui." Não corrigir nada. Anotar a primeira impressão em Observações de T1.
+Deixar a pessoa ler a tela "Sobre o painel" e fechá-la quando quiser (anotar se ela leu, pulou ou abriu o tour). Depois: "Olhe a tela à vontade por um minuto e me diga o que acha que dá para fazer aqui." Não corrigir nada. Anotar a primeira impressão em Observações de T1.
 
 ## 3. Tarefas (pensar em voz alta)
 

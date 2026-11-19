@@ -38,6 +38,16 @@ Novo bloco na ficha e na Análise: uma barra de 100% com o local da notificaçã
 
 ![Onde as mulheres de Sousa foram atendidas](../capturas/ficha_local_atendimento.png)
 
+## 4. Acabamento de interface para a apresentação
+
+- **Sobre o painel** na primeira visita: para que serve, uso em 3 passos, os 5 indicadores, fontes com data e avisos. Fecha com um clique e não volta.
+- **Ficha** com o que olhar primeiro: frase-resumo calculada ("Notifica bem menos que o estado: 0,09 do esperado"), depois os 5 indicadores, depois os contextos; seções recolhíveis no celular.
+- **Leituras prontas** na Análise, cada uma com a evidência e uma pergunta para a gestão.
+- **Tour** de 6 passos para a demonstração, além de estados de carregamento, erro e busca vazia com mensagem útil.
+- **Lighthouse:** celular 99 de desempenho e 100 de acessibilidade; computador 100 nos dois (`docs/lighthouse/`). Detalhes em `docs/websig_usabilidade.md`.
+
+![Tela Sobre o painel](../capturas/sobre_o_painel.png)
+
 ---
 
 ## O que NÃO foi acrescentado, e por quê

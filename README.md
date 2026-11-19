@@ -11,7 +11,7 @@ Trabalho de Conclusão de Curso (artigo tecnológico), Sistemas de Informação,
 - **Sem instalar nada:** dê duplo clique em `web/index.html`. Funciona offline, no Chrome, Edge, Firefox ou Safari (usa `web/dados.js`).
 - **Num servidor** (GitHub Pages, servidor da universidade ou `python -m http.server` dentro de `web/`): publique a pasta `web/`. O painel lê `web/dados.json`.
 
-O painel tem três telas: **Mapa** (filtros, mapa, ranking e ficha do município), **Análise** (gráficos, conclusões e tabela para baixar em CSV) e **Como calcular** (cada indicador com fórmula e exemplo).
+O painel tem três telas: **Mapa** (filtros, mapa, ranking e ficha do município), **Análise** (leituras prontas com a pergunta para a gestão, gráficos e tabela para baixar em CSV) e **Como calcular** (cada indicador com fórmula e exemplo). Na primeira visita abre a tela **Sobre o painel** (para que serve, uso em 3 passos, fontes e avisos); o botão **Tour** faz uma demonstração guiada em 6 passos.
 
 ## Como atualizar os dados (refazer tudo a partir dos dados brutos)
 
@@ -68,7 +68,7 @@ Views: `vw_indicador_municipio_ano_tipo` (município × período × tipo), `vw_i
 - Filtros de indicador, tipo de violência, período (cada ano ou 2019–2024) e **região de saúde** (16 regiões; recorta o mapa, o ranking e a tabela e aproxima o mapa da região).
 - Título do mapa com os filtros ativos; legenda com a média do estado (e da região, quando escolhida).
 - Ranking dos 10 maiores e dos 10 menores (nos menores entram só municípios com pelo menos 10 casos).
-- **Ficha do município:** os 5 indicadores comparados com o estado e com a região de saúde, série anual, tipos, faixa etária ("Faixa mais atingida" e botões **Casos | Taxa por 100 mil/ano**, com a taxa do estado como referência), aviso de poucos casos, link "como calcular" e **Imprimir ficha**.
+- **Ficha do município:** frase-resumo calculada no topo (o que olhar primeiro), os 5 indicadores comparados com o estado e com a região de saúde, série anual, tipos, faixa etária ("Faixa mais atingida" e botões **Casos | Taxa por 100 mil/ano**, com a taxa do estado como referência), aviso de poucos casos, link "como calcular" e **Imprimir ficha**.
 - **Onde as mulheres foram atendidas** (contexto, na ficha e na Análise): barra única de 100% com mesma região de saúde, outra região da Paraíba e fora da Paraíba, com número e %. % = casos atendidos na categoria ÷ casos do município × 100. Não é indicador e não diz o motivo.
 - **Serviços declarados pelo município (MUNIC 2023, IBGE):** organismo de políticas para mulheres, centro de referência, casa-abrigo e delegacia especializada, com ícone e texto (sim / não / sem dado). É contexto: não entra em nenhuma conta nem no mapa.
 - Comparar 2 ou 3 municípios; ver o mapa como tabela; baixar CSV (separador `;`, vírgula decimal, abre direto no Excel ou no Calc).
@@ -79,6 +79,10 @@ Views: `vw_indicador_municipio_ano_tipo` (município × período × tipo), `vw_i
 |---|---|---|
 | ![Filtro por região de saúde](capturas/regiao_saude_filtro.png) | ![Ficha no celular](capturas/celular_claro_mapa_ficha.png) | ![Município com foco do teclado](capturas/mapa_foco_teclado.png) |
 
+| Sobre o painel (1ª visita) | Tour guiado (passo 4 de 6) | Erro sem os dados |
+|---|---|---|
+| ![Sobre o painel](capturas/sobre_o_painel.png) | ![Tour](capturas/tour_passo4.png) | ![Mensagem de erro](capturas/estado_erro.png) |
+
 | Faixa etária em taxa | Serviços declarados (MUNIC 2023) | Onde foram atendidas |
 |---|---|---|
 | ![Faixa etária como taxa por 100 mil](capturas/ficha_faixa_taxa.png) | ![Serviços declarados pelo município](capturas/ficha_rede_munic.png) | ![Local de atendimento](capturas/ficha_local_atendimento.png) |
@@ -88,6 +92,10 @@ Views: `vw_indicador_municipio_ano_tipo` (município × período × tipo), `vw_i
 | ![Tela Análise](capturas/1366_claro_analise.png) | ![Tela Como calcular](capturas/1366_claro_como_calcular.png) | ![Tema escuro](capturas/1366_escuro_mapa_ficha.png) |
 
 A ficha impressa (botão **Imprimir ficha**) sai numa folha limpa, com fonte e data; os testes geram um exemplo em PDF em `capturas/` (não publicado).
+
+## Qualidade
+
+Lighthouse 12.6 (página inicial, servidor com compressão): celular Desempenho 99, Acessibilidade 100, Boas práticas 100, SEO 100; computador 100 em tudo. Relatórios em [`docs/lighthouse/`](docs/lighthouse/).
 
 ## Testes
 
