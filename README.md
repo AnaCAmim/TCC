@@ -33,6 +33,7 @@ O banco é só local: a senha do Postgres no `atualizar.bat` serve apenas ao con
 |---|---|---|
 | Notificações de violência (mulheres, município de residência, 2019–2024, sem violência autoprovocada), por ano, tipo e faixa etária | SINAN/TABNET, Ministério da Saúde | 14/10 e 20/10/2026 |
 | Mulheres por município (denominador) e por faixa etária | IBGE, Censo 2022, SIDRA tabela 9514 (API) | 18/11/2026 |
+| Local de atendimento (contexto): residência × região de saúde de notificação | SINAN/TABNET, mesma base das notificações | 18/11/2026 |
 | Serviços declarados pelo município (contexto da ficha) | IBGE, MUNIC 2023, bloco "Política para Mulheres" e item de delegacia especializada | 18/11/2026 |
 | Nomes oficiais dos municípios | IBGE, API de localidades | 18/11/2026 |
 | Região e macrorregião de saúde | Ministério da Saúde/DATASUS, Base Territorial (jun/2026) | 18/11/2026 |
@@ -60,7 +61,7 @@ SELECT nome, casos, round(taxa_100mil_ano, 1) AS taxa, round(o_sobre_e, 2) AS oe
 FROM websig.vw_indicador_municipio_ano_tipo
 WHERE periodo = '2019-2024' AND tipo = 'total' ORDER BY o_sobre_e LIMIT 10;
 ```
-Views: `vw_indicador_municipio_ano_tipo` (município × período × tipo), `vw_indicador_estado`, `vw_indicador_regiao`, `vw_faixa_municipio` e `vw_faixa_estado` (taxa por faixa etária).
+Views: `vw_indicador_municipio_ano_tipo` (município × período × tipo), `vw_indicador_estado`, `vw_indicador_regiao`, `vw_faixa_municipio` e `vw_faixa_estado` (taxa por faixa etária), `vw_local_atendimento` e `vw_local_estado` (local de atendimento).
 
 ## O que o painel oferece
 
@@ -68,6 +69,7 @@ Views: `vw_indicador_municipio_ano_tipo` (município × período × tipo), `vw_i
 - Título do mapa com os filtros ativos; legenda com a média do estado (e da região, quando escolhida).
 - Ranking dos 10 maiores e dos 10 menores (nos menores entram só municípios com pelo menos 10 casos).
 - **Ficha do município:** os 5 indicadores comparados com o estado e com a região de saúde, série anual, tipos, faixa etária ("Faixa mais atingida" e botões **Casos | Taxa por 100 mil/ano**, com a taxa do estado como referência), aviso de poucos casos, link "como calcular" e **Imprimir ficha**.
+- **Onde as mulheres foram atendidas** (contexto, na ficha e na Análise): barra única de 100% com mesma região de saúde, outra região da Paraíba e fora da Paraíba, com número e %. % = casos atendidos na categoria ÷ casos do município × 100. Não é indicador e não diz o motivo.
 - **Serviços declarados pelo município (MUNIC 2023, IBGE):** organismo de políticas para mulheres, centro de referência, casa-abrigo e delegacia especializada, com ícone e texto (sim / não / sem dado). É contexto: não entra em nenhuma conta nem no mapa.
 - Comparar 2 ou 3 municípios; ver o mapa como tabela; baixar CSV (separador `;`, vírgula decimal, abre direto no Excel ou no Calc).
 - Endereço por tela e por município: `#mapa`, `#analise`, `#como-calcular`, `#mapa-<código IBGE>` (ex.: `#mapa-2516201` é Sousa), com o botão **Copiar link**.
@@ -77,9 +79,9 @@ Views: `vw_indicador_municipio_ano_tipo` (município × período × tipo), `vw_i
 |---|---|---|
 | ![Filtro por região de saúde](capturas/regiao_saude_filtro.png) | ![Ficha no celular](capturas/celular_claro_mapa_ficha.png) | ![Município com foco do teclado](capturas/mapa_foco_teclado.png) |
 
-| Faixa etária em taxa | Serviços declarados (MUNIC 2023) |
-|---|---|
-| ![Faixa etária como taxa por 100 mil](capturas/ficha_faixa_taxa.png) | ![Serviços declarados pelo município](capturas/ficha_rede_munic.png) |
+| Faixa etária em taxa | Serviços declarados (MUNIC 2023) | Onde foram atendidas |
+|---|---|---|
+| ![Faixa etária como taxa por 100 mil](capturas/ficha_faixa_taxa.png) | ![Serviços declarados pelo município](capturas/ficha_rede_munic.png) | ![Local de atendimento](capturas/ficha_local_atendimento.png) |
 
 | Análise | Como calcular | Tema escuro |
 |---|---|---|
@@ -90,7 +92,7 @@ A ficha impressa (botão **Imprimir ficha**) sai numa folha limpa, com fonte e d
 ## Testes
 
 - `testes/testar_dados.py`: totais, somas e coerência do banco, inclusive mulheres por faixa (soma 2.055.832 por município e no estado) e MUNIC igual ao bruto (só biblioteca padrão).
-- `testes/testar_front.py`: o painel nos dois modos de abertura (arquivo e servidor); taxa e O/E iguais à view em 6.244 combinações taxa das 16 regiões em 448 e taxa por faixa em 2.230; bloco MUNIC igual ao bruto em 10 municípios sorteados; links, ficha, impressão, comparação, CSV, filtro de região, teclado (inclusive no mapa), toque e telas em 1366, 1920 e 390 px, claro e escuro.
+- `testes/testar_front.py`: o painel nos dois modos de abertura (arquivo e servidor); taxa e O/E iguais à view em 6.244 combinações taxa das 16 regiões em 448 e taxa por faixa em 2.230; % do local de atendimento em 669; frase do estado; bloco MUNIC igual ao bruto em 10 municípios sorteados; links, ficha, impressão, comparação, CSV, filtro de região, teclado (inclusive no mapa), toque e telas em 1366, 1920 e 390 px, claro e escuro.
 - `testes/testar_usabilidade.py`: refaz as 5 tarefas do teste com usuários a partir da página inicial, conta as ações (todas com 1 ou 2) e confere contraste, daltonismo e celular em 320 px.
 - Os dois últimos aceitam `--navegador firefox` ou `--navegador webkit`.
 
