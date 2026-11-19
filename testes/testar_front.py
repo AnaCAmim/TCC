@@ -11,6 +11,7 @@ import http.server
 import io
 import pathlib
 import random
+import shutil
 import sys
 import tempfile
 import threading
@@ -95,6 +96,22 @@ CALCULO = """() => { const P = window.PAINEL, tipos = ['total','fisica','psicolo
   return out; }"""
 
 
+
+CHAVE_SOBRE = "websig-sobre-visto"
+
+
+def visita_repetida(nav):
+    """Os testes simulam quem já viu "Sobre o painel" (o aviso da 1ª visita é testado à parte). Devolve o new_context original."""
+    original = nav.new_context
+
+    def novo(**kw):
+        ctx = original(**kw)
+        ctx.add_init_script(f"try {{ localStorage.setItem('{CHAVE_SOBRE}', '1'); }} catch (e) {{}}")
+        return ctx
+    nav.new_context = novo
+    return original
+
+
 def abrir(pg, url):
     pg.goto(url)
     pg.wait_for_function("window.PAINEL !== undefined", timeout=15000)
@@ -108,6 +125,7 @@ def ouvir(pg, lista):
 
 with sync_playwright() as pw:
     nav = lancar(pw)
+    ctx_puro = visita_repetida(nav)
 
     # ======================= funções da tela, nos dois modos de abertura =======================
     for modo, url in MODOS.items():
@@ -140,7 +158,7 @@ with sync_playwright() as pw:
         pg.evaluate("location.hash = '#mapa'"); pg.wait_for_timeout(200)
         pg.select_option("#tipo", "sexual"); pg.select_option("#per", "2024"); pg.wait_for_timeout(300)
         titulo = pg.inner_text("#mapatitulo")
-        check(titulo == "Taxa por 100 mil mulheres · Sexual · 2024", f"{modo}: título do mapa '{titulo}'")
+        check(titulo == "Taxa por 100 mil mulheres por ano · Sexual · 2024", f"{modo}: título do mapa '{titulo}'")
         # Tabela do mapa (mesmos filtros: sexual, 2024)
         pg.click("#verTabela"); pg.wait_for_timeout(300)
         linhas = pg.evaluate("() => [...document.querySelectorAll('#maptab tbody tr[data-c]')].map(tr => [tr.dataset.c, ...[...tr.querySelectorAll('td')].map(td => td.textContent)])")
@@ -184,6 +202,12 @@ with sync_playwright() as pw:
               and fmt(r["taxa"], 1) in ficha and fmt(r["oe"], 2) in ficha and fmt(EST[("all", "total")], 1) in ficha and "Casos por ano" in ficha,
               f"{modo}: ficha de Sousa com 5 indicadores, média do estado, série anual e links 'como calcular'")
         rs = REGREF[(MUNREG[SOUSA], "all", "total")]
+        # O que olhar primeiro: frase-resumo calculada, depois os 5 indicadores, depois os contextos
+        resumo = pg.inner_text("#painel .resumo")
+        ordem = pg.evaluate("[...document.querySelectorAll('#painel > .resumo, #painel details.sec')].map(e => e.dataset.sec || 'resumo')")
+        check(resumo.startswith("Notifica bem menos que o estado: " + fmt(r["oe"], 2) + " do esperado") and ordem == ["resumo", "ind", "faixa", "ano", "local", "rede"]
+              and pg.locator("#painel details[data-sec=ind] .ind5 .it").count() == 5,
+              f"{modo}: ficha começa pela frase-resumo calculada ({resumo!r}) e segue indicadores, depois contextos ({ordem})")
         # Faixa etária: alternância Casos | Taxa por 100 mil/ano, com a taxa do estado como referência e aviso de valor instável
         pg.click("#painel [data-fx=taxa]"); pg.wait_for_timeout(200)
         fxt = pg.inner_text("#painel .fxcorpo")
@@ -280,6 +304,16 @@ with sync_playwright() as pw:
             pg.locator("#painel .rede").scroll_into_view_if_needed(); pg.screenshot(path=str(CAP / "ficha_rede_munic.png"))
         # Tabela da Análise (arredondamento) e CSV
         pg.evaluate("location.hash = '#analise'"); pg.wait_for_timeout(300)
+        # Leituras prontas: contextos calculados dos dados, cada leitura com evidência e pergunta para a gestão
+        concl = pg.inner_text("#concl")
+        i_max = max(FXEST, key=FXEST.get)
+        rot_max = {1: "Menos de 1", 2: "1 a 4", 3: "5 a 9", 4: "10 a 14", 5: "15 a 19", 6: "20 a 29", 7: "30 a 39", 8: "40 a 49", 9: "50 a 59", 10: "60 ou mais"}[i_max]
+        n_serv = {k: sum(1 for x in REDE_BRUTO.values() if x[k] == "Sim") for k in COLS_REDE}
+        check(f"Em taxa, a faixa etária mais atingida é {rot_max} anos." in concl and fmt(FXEST[i_max], 1) in concl
+              and f"{fmt(LOCEST[1][1], 1)}% das notificações foram feitas na região de saúde onde a mulher mora" in concl
+              and all(f"{n} declaram" in concl for n in n_serv.values())
+              and pg.locator("#concl li").count() == pg.locator("#concl li .perg").count() >= 10,
+              f"{modo}: leituras prontas dos contextos (faixa {rot_max}, local, MUNIC) calculadas, cada uma com pergunta para a gestão")
         frase = pg.inner_text("#localfrase")
         esperada = (f"{fmt(LOCEST[1][1], 1)}% foram atendidas na própria região de saúde, {fmt(LOCEST[2][1], 1)}% em outra região da Paraíba "
                     f"e {fmt(LOCEST[3][1], 1)}% fora do estado ({LOCEST[3][0]} casos).")
@@ -362,6 +396,61 @@ with sync_playwright() as pw:
     check(not erros_k, f"teclado: console sem erros {erros_k[:2]}")
     ctx.close()
 
+    # ======================= Sobre o painel (1ª visita), tour e estados de carga/erro =======================
+    ctx = ctx_puro(viewport={"width": 1366, "height": 768})
+    pg = ctx.new_page(); erros_s = []; ouvir(pg, erros_s)
+    abrir(pg, MODOS["http"])
+    txt_sobre = pg.inner_text("#sobre") if pg.evaluate("document.getElementById('sobre').open") else ""
+    check(all(x in txt_sobre for x in ["Como usar em 3 passos", "Casos notificados", "Taxa por 100 mil mulheres por ano", "Tipos de violência", "Faixa etária",
+                                        "Observado ÷ esperado", "Notificação não é ocorrência", "Poucos casos", "Fontes"]) and pg.locator("#carregando").count() == 0,
+          "1ª visita: Sobre o painel abre sozinho com uso em 3 passos, 5 indicadores, fontes e avisos (e o aviso de carregamento some)")
+    pg.screenshot(path=str(CAP / "sobre_o_painel.png"))
+    pg.click("#sobreComecar"); pg.reload(); pg.wait_for_function("window.PAINEL !== undefined"); pg.wait_for_timeout(300)
+    check(not pg.evaluate("document.getElementById('sobre').open"), "Sobre o painel não volta depois de fechado (localStorage)")
+    pg.click("#abrirSobre"); pg.wait_for_timeout(150)
+    check(pg.evaluate("document.getElementById('sobre').open"), "botão Sobre o painel reabre a tela")
+    pg.keyboard.press("Escape"); pg.wait_for_timeout(150)
+    # Tour de 6 passos: mapa da taxa, observado ÷ esperado, ficha de Sousa, faixa em taxa, Análise, Como calcular
+    ESTADO_TOUR = """(() => { const b = document.querySelector('#painel [data-fx=taxa]');
+        return [document.getElementById('tourPasso').textContent, document.getElementById('tourT').textContent, location.hash,
+                document.getElementById('ind').value, b ? b.getAttribute('aria-pressed') : '']; })()"""
+    pg.click("#abrirTour"); pg.wait_for_timeout(400)
+    passos = []
+    for k in range(6):
+        passos.append(pg.evaluate(ESTADO_TOUR))
+        if k == 3:
+            pg.screenshot(path=str(CAP / "tour_passo4.png"))
+        if k < 5:
+            pg.keyboard.press("ArrowRight"); pg.wait_for_timeout(800)
+    pg.keyboard.press("ArrowLeft"); pg.wait_for_timeout(400)
+    volta = pg.evaluate("location.hash")
+    pg.keyboard.press("Escape"); pg.wait_for_timeout(200)
+    check([x[0] for x in passos] == [f"Passo {i} de 6" for i in range(1, 7)] and passos[0][2] == "#mapa" and passos[0][3] == "taxa" and passos[1][3] == "oe"
+          and passos[2][2] == "#mapa-" + SOUSA and passos[3][4] == "true" and passos[4][2] == "#analise" and passos[5][2] == "#como-calcular"
+          and volta == "#analise" and pg.evaluate("document.getElementById('tour').hidden") and pg.evaluate("document.activeElement.id") == "abrirTour" and not erros_s,
+          f"tour: 6 passos na ordem combinada, setas e Esc (foco volta ao botão) {[x[1] for x in passos]}")
+    ctx.close()
+    # chegar por link de ficha não abre o Sobre
+    ctx = ctx_puro(viewport={"width": 1366, "height": 768}); pg = ctx.new_page()
+    abrir(pg, MODOS["http"] + "#mapa-" + SOUSA)
+    check(not pg.evaluate("document.getElementById('sobre').open"), "link direto para a ficha não abre o Sobre na 1ª visita")
+    ctx.close()
+    # erro: sem dados.json e dados.js, mensagem útil com o que fazer
+    sem = pathlib.Path(tempfile.mkdtemp(prefix="websig_semdados_"))
+    for parte in ["index.html", "css", "js", "vendor"]:
+        origem = WEB / parte
+        if origem.is_dir():
+            shutil.copytree(origem, sem / parte)
+        else:
+            shutil.copy(origem, sem / parte)
+    ctx = nav.new_context(); pg = ctx.new_page(); pg.goto((sem / "index.html").as_uri()); pg.wait_for_timeout(1500)
+    err_txt = pg.inner_text("main")
+    check("Não foi possível carregar os dados do painel" in err_txt and "atualizar.bat" in err_txt and pg.locator(".erro button").count() == 1 and pg.locator("#carregando").count() == 0,
+          "estado de erro: sem os arquivos de dados, a tela explica o problema e o que fazer")
+    if NAV == "chrome":
+        pg.screenshot(path=str(CAP / "estado_erro.png"))
+    ctx.close(); shutil.rmtree(sem, ignore_errors=True)
+
     # ======================= toque (celular): 1º toque mostra a etiqueta, 2º abre a ficha =======================
     ctx = nav.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2, **movel())
     pg = ctx.new_page(); erros_t = []; ouvir(pg, erros_t)
@@ -389,6 +478,9 @@ with sync_playwright() as pw:
             abrir(pg, MODOS["http"] + "#mapa-" + SOUSA); pg.wait_for_timeout(800)
             rot = f"{nome}_{'claro' if tema == 'light' else 'escuro'}"
             sem_rol = pg.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
+            secs = pg.evaluate("Object.fromEntries([...document.querySelectorAll('#painel details.sec')].map(d => [d.dataset.sec, d.open]))")
+            esperado_secs = {"ind": True, "faixa": False, "ano": False, "local": False, "rede": False} if cel else {k: True for k in ["ind", "faixa", "ano", "local", "rede"]}
+            check(secs == esperado_secs, f"{nome}_{tema}: seções da ficha {'recolhidas no celular (só os indicadores abertos)' if cel else 'abertas na tela grande'} {secs}")
             pg.screenshot(path=str(CAP / f"{rot}_mapa_ficha.png"))
             pg.evaluate("location.hash = '#analise'"); pg.wait_for_timeout(400)
             pg.screenshot(path=str(CAP / f"{rot}_analise.png"))

@@ -65,6 +65,22 @@ threading.Thread(target=srv.serve_forever, daemon=True).start()
 INICIO = f"http://127.0.0.1:{srv.server_address[1]}/index.html"
 
 
+
+CHAVE_SOBRE = "websig-sobre-visto"
+
+
+def visita_repetida(nav):
+    """Os testes simulam quem já viu "Sobre o painel" (o aviso da 1ª visita é testado à parte). Devolve o new_context original."""
+    original = nav.new_context
+
+    def novo(**kw):
+        ctx = original(**kw)
+        ctx.add_init_script(f"try {{ localStorage.setItem('{CHAVE_SOBRE}', '1'); }} catch (e) {{}}")
+        return ctx
+    nav.new_context = novo
+    return original
+
+
 class Tarefa:
     """Registra cada ação do usuário simulado."""
     def __init__(self, pg):
@@ -92,6 +108,7 @@ def nova(nav, **kw):
 registro = {}
 with sync_playwright() as p:
     nav = lancar(p)
+    ctx_puro = visita_repetida(nav)
 
     # T1: os 3 municípios de menor observado ÷ esperado com pelo menos 10 casos
     ctx, pg, erros = nova(nav); t = Tarefa(pg)
@@ -132,7 +149,7 @@ with sync_playwright() as p:
     ctx, pg, erros = nova(nav); t = Tarefa(pg)
     t.clicar("button[data-v=analise]", "Aba Análise")
     with pg.expect_download() as dl:
-        t.clicar("#baixarCsv", "Baixar CSV")
+        t.clicar("#baixarCsv", "Baixar tabela (CSV)")
     texto = pathlib.Path(dl.value.path()).read_text(encoding="utf-8").lstrip("﻿")
     linhas = list(csv.reader(io.StringIO(texto), delimiter=";"))
     check(";".join(linhas[0]) == R["T5"]["cabecalho"] and len(linhas) - 1 == R["T5"]["linhas_csv"], f"T5: CSV baixado com {len(linhas) - 1} municípios")
@@ -145,6 +162,14 @@ with sync_playwright() as p:
     t.clicar("#painel [data-acao=imprimir]", "Imprimir ficha")
     check(pg.evaluate("window.__imp") == 1 and "Sousa" in pg.inner_text("#impressao"), "T5: ficha de Sousa enviada para impressão")
     registro["T5 (imprimir ficha)"] = t.acoes; check(not erros, f"T5b: sem erros {erros[:1]}"); ctx.close()
+
+    # Primeira visita: "Sobre o painel" abre sozinho e fecha com 1 clique (soma 1 ação só na primeira vez)
+    ctx = ctx_puro(viewport={"width": 1366, "height": 768}); pg = ctx.new_page()
+    pg.goto(INICIO); pg.wait_for_function("window.PAINEL !== undefined")
+    aberto = pg.evaluate("document.getElementById('sobre').open")
+    t = Tarefa(pg); t.clicar("#sobreComecar", "Primeira visita: Começar (fecha Sobre o painel)")
+    check(aberto and not pg.evaluate("document.getElementById('sobre').open"), "primeira visita: Sobre o painel abre e fecha com 1 clique")
+    registro["Primeira visita (só uma vez)"] = t.acoes; ctx.close()
 
     for k, a in registro.items():
         check(len(a) <= MAX_ACOES, f"{k}: {len(a)} ações (limite {MAX_ACOES})")
