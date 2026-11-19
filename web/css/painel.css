@@ -166,7 +166,15 @@ footer{background:var(--surface);border-top:1px solid var(--line);font-size:12px
 .rede .sim .ic{color:var(--accent)}
 .rede .nao .ic{color:var(--ink-2)}
 .rede .sd .ic{color:var(--warn-ink)}
-.rede .nota{font-size:12px;color:var(--ink-3);margin:6px 0 0}
+.rede .nota,.local .nota,.card .nota{font-size:12px;color:var(--ink-3);margin:6px 0 0}
+.local{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}
+.local h3{margin:0 0 6px}
+.barra100{display:flex;gap:2px;height:16px;border-radius:6px;overflow:hidden;margin:4px 0 6px;background:var(--surface-2)}
+.barra100 span{display:block;height:100%;min-width:2px}
+.leg100{list-style:none;margin:0;padding:0;font-size:13px}
+.leg100 li{display:flex;gap:8px;align-items:baseline;padding:2px 0}
+.leg100 .sw{flex:0 0 12px;height:12px;border-radius:3px;transform:translateY(1px)}
+.concl1{font-weight:600;margin:4px 0 6px}
 @media (max-width:860px){
   html,body{height:auto}
   main,.view.on{display:block}
@@ -197,5 +205,6 @@ footer{background:var(--surface);border-top:1px solid var(--line);font-size:12px
   #impressao .barras .tr{background:#eee}
   #impressao .barras .b{background:#2a5f9e;print-color-adjust:exact;-webkit-print-color-adjust:exact}
   #impressao .barras .ref{background:#000}
+  #impressao .barra100 span,#impressao .leg100 .sw{print-color-adjust:exact;-webkit-print-color-adjust:exact}
   #impressao .rodape{margin-top:14px;font-size:9.5pt;color:#444;border-top:1px solid #bbb;padding-top:6px}
 }

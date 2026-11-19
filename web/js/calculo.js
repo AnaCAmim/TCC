@@ -35,8 +35,12 @@ WS.calculo = (function () {
     const casosRegiao = (reg, tipo, per) => munsRegiao(reg).reduce((s, p) => s + casos(p, tipo, per), 0);
     const popRegiao = reg => munsRegiao(reg).reduce((s, p) => s + p.pop, 0);
     const taxaRegiao = (reg, tipo, per) => casosRegiao(reg, tipo, per) / popRegiao(reg) * 1e5 / anosPer(per);
+    // Local de notificação (contexto): [mesma região de saúde, outra região da PB, fora da Paraíba]; % = casos na categoria ÷ casos do município × 100
+    const LOCAIS = ['Mesma região de saúde', 'Outra região da Paraíba', 'Fora da Paraíba'];
+    const localEstado = [0, 1, 2].map(k => F.reduce((s, f) => s + f.properties.local[k], 0));
+    const pctLocal = (vals, k) => { const t = vals[0] + vals[1] + vals[2]; return t ? 100 * vals[k] / t : null; };
     const leituraOE = o => (!isFinite(o) ? '' : o < 0.8 ? 'Notifica menos que a média do estado' : o <= 1.25 ? 'Notifica perto da média do estado' : 'Notifica mais que a média do estado');
-    return { F, ANOS, FX, POP, porCod, casos, anosPer, casosEstado, taxa, taxaEstado, esperado, oe, valor, faixaEstado, popFaixaEstado, taxaFaixa, taxaFaixaEstado, N_FX_TAXA, nomePer, rotFx, leituraOE, REG, munsRegiao, casosRegiao, popRegiao, taxaRegiao, TIPOS, NOME_IND };
+    return { F, ANOS, FX, POP, porCod, casos, anosPer, casosEstado, taxa, taxaEstado, esperado, oe, valor, faixaEstado, popFaixaEstado, taxaFaixa, taxaFaixaEstado, N_FX_TAXA, nomePer, rotFx, leituraOE, LOCAIS, localEstado, pctLocal, REG, munsRegiao, casosRegiao, popRegiao, taxaRegiao, TIPOS, NOME_IND };
   }
 
   // Tela "Como calcular": cada indicador com o que é, fórmula, exemplo com números reais, uso e cuidado
@@ -71,10 +75,15 @@ WS.calculo = (function () {
         '1 = igual ao estado; 0,5 = metade; 2 = o dobro. Bom para achar municípios muito fora da média.',
         'Notificar menos não quer dizer ter menos violência: pode ser dificuldade de acesso ou de registro. Em municípios com poucos casos o número oscila muito.']
     ];
+    const exl = ex.local, exT = exl[0] + exl[1] + exl[2], el3 = C.localEstado, elT = el3[0] + el3[1] + el3[2];
+    const contexto = '<article id="ctx-local" tabindex="-1"><h2>Contexto: onde as mulheres foram atendidas</h2><dl><dt>O que é</dt><dd>Não é um sexto indicador: mostra em que lugar as notificações das mulheres de cada município foram feitas, na mesma região de saúde do município, em outra região da Paraíba ou fora do estado.</dd>' +
+      '<dt>Como se calcula</dt><dd><code class="f">casos atendidos na categoria ÷ casos do município × 100</code>. As regiões de notificação vêm do TABNET (SINAN). "Fora da Paraíba" = casos por residência − casos notificados na Paraíba, porque o TABNET só lista os municípios de notificação da Paraíba.</dd>' +
+      '<dt>Exemplo</dt><dd>' + ex.nome + ': ' + nf(exl[0]) + ' ÷ ' + nf(exT) + ' × 100 = ' + nf(C.pctLocal(exl, 0), 1) + '% na própria região de saúde. Estado: ' + nf(el3[0]) + ' ÷ ' + nf(elT) + ' × 100 = ' + nf(C.pctLocal(el3, 0), 1) + '%; ' + nf(el3[2]) + ' casos (' + nf(C.pctLocal(el3, 2), 1) + '%) fora da Paraíba.</dd>' +
+      '<dt>Cuidado</dt><dd>Atendimento em outra região pode indicar falta de serviço local ou referência regional; o dado não diz o motivo. Com menos de 10 casos, as porcentagens mudam muito.</dd></dl></article>';
     el.innerHTML = '<div class="card" style="margin:0"><h2>Os cinco indicadores deste painel</h2><p class="desc" style="margin:0">Todos vêm de duas fontes públicas: SINAN/TABNET (casos) e Censo 2022 do IBGE (número de mulheres). Nenhum modelo estatístico complexo é usado; as contas abaixo podem ser refeitas numa planilha.</p></div>' +
       IND.map(i => '<article id="ind-' + i[0] + '" tabindex="-1"><h2>' + i[1] + '</h2><dl><dt>O que é</dt><dd>' + i[2] + '</dd><dt>Como se calcula</dt><dd>' + i[3] +
-        '</dd><dt>Exemplo</dt><dd>' + i[4] + '</dd><dt>Para que serve</dt><dd>' + i[5] + '</dd><dt>Cuidado</dt><dd>' + i[6] + '</dd></dl></article>').join('') +
-      '<div class="card" style="margin:0"><h2>Fontes e limitações</h2><p class="desc" style="margin:0">Notificações: SINAN/TABNET (Ministério da Saúde), mulheres, município de residência, sem violência autoprovocada. Mulheres: Censo 2022 (IBGE, SIDRA 9514), o mesmo denominador em todos os anos. Mulheres por faixa etária: Censo 2022 (IBGE, SIDRA 9514). Serviços declarados pelo município: MUNIC 2023 (IBGE). Regiões e macrorregiões de saúde: Base Territorial do Ministério da Saúde/DATASUS (junho de 2026). O SINAN de 2023 e 2024 ainda pode ser revisado. A notificação mede o registro, não a ocorrência.</p></div>';
+        '</dd><dt>Exemplo</dt><dd>' + i[4] + '</dd><dt>Para que serve</dt><dd>' + i[5] + '</dd><dt>Cuidado</dt><dd>' + i[6] + '</dd></dl></article>').join('') + contexto +
+      '<div class="card" style="margin:0"><h2>Fontes e limitações</h2><p class="desc" style="margin:0">Notificações: SINAN/TABNET (Ministério da Saúde), mulheres, município de residência, sem violência autoprovocada. Mulheres: Censo 2022 (IBGE, SIDRA 9514), o mesmo denominador em todos os anos. Mulheres por faixa etária: Censo 2022 (IBGE, SIDRA 9514). Serviços declarados pelo município: MUNIC 2023 (IBGE). Local de atendimento: SINAN/TABNET, região de saúde de notificação. Regiões e macrorregiões de saúde: Base Territorial do Ministério da Saúde/DATASUS (junho de 2026). O SINAN de 2023 e 2024 ainda pode ser revisado. A notificação mede o registro, não a ocorrência.</p></div>';
   }
   return { criar, telaComoCalcular, TIPOS, NOME_IND };
 })();

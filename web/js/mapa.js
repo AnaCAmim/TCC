@@ -164,6 +164,17 @@ WS.mapa = (function () {
       return '<li class="' + cls + '" data-k="' + k + '" data-v="' + esc(v) + '"><span class="ic" aria-hidden="true">' + ic + '</span><span><b>' + txt + '</b> · ' + nome + '</span></li>';
     }).join('') + '</ul><p class="nota">Informação declarada pela prefeitura em 2023; serviços criados depois não aparecem.</p></div>';
   }
+  // Onde as mulheres deste município foram atendidas (local da notificação): só contexto
+  const NOTA_LOCAL = 'Atendimento em outra região pode indicar falta de serviço local ou referência regional; o dado não diz o motivo.';
+  const CORES_LOCAL = ['--s1', '--s2', '--s4'];
+  function htmlLocal(p) {
+    const tot = p.local[0] + p.local[1] + p.local[2];
+    const rot = [C.LOCAIS[0] + (C.REG[p.reg] ? ' (' + esc(nomeReg(p.reg)) + ')' : ''), C.LOCAIS[1], C.LOCAIS[2]];
+    return '<div class="local"><h3>Onde as mulheres deste município foram atendidas (2019 a 2024, todos os tipos)</h3>' +
+      WS.util.barra100(rot.map((r, k) => ({ rot: r, n: p.local[k], cor: css(CORES_LOCAL[k]), k: k + 1 }))) +
+      (tot && tot < MIN_CASOS ? '<div class="flag">Poucos casos (' + nf(tot) + '): um caso a mais ou a menos muda muito as porcentagens. Valor instável.</div>' : '') +
+      '<p class="nota">' + NOTA_LOCAL + '</p></div>';
+  }
   function htmlFicha(p) {
     const t = S.tipo, per = S.per, c = C.casos(p, t, per), ce = C.casosEstado(t, per), tx = C.taxa(p, t, per), te = C.taxaEstado(t, per);
     const e = C.esperado(p, t, per), o = c / e, totEst = C.casosEstado('total', per);
@@ -184,7 +195,7 @@ WS.mapa = (function () {
       '<div class="it"><div class="cab"><span>Faixa etária (2019 a 2024, todos os tipos)</span>' + linkCalc('faixa') + '</div>' + faixaTopo(p) + alternaFx() + '<div class="fxcorpo">' + fxCorpo(p) + '</div></div>' +
       '</div>';
     h += '<h3>Casos por ano (' + C.TIPOS[t] + ')</h3>' + barras(C.ANOS.map((a, i) => [String(a), p.casos[t][i]]));
-    h += htmlRede(p);
+    h += htmlLocal(p) + htmlRede(p);
     h += '<div class="btnrow noprint"><button class="btn peq pri" type="button" data-acao="imprimir">Imprimir ficha</button>' +
       '<button class="btn peq" type="button" data-acao="link">Copiar link</button><button class="btn peq" type="button" data-acao="comparar">Comparar com outros</button></div>';
     return h;

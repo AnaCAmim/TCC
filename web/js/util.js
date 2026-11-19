@@ -31,5 +31,14 @@ WS.util = (function () {
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
-  return { $, nf, css, semAc, esc, toast, copiar, baixar };
+  // Barra única de 100% com legenda em número e % (a cor nunca é a única informação). itens: [{ rot, n, cor, k }]
+  function barra100(itens) {
+    const tot = itens.reduce((s, i) => s + i.n, 0), pct = n => (tot ? 100 * n / tot : 0);
+    if (!tot) return '<p class="hint">Nenhuma notificação de 2019 a 2024.</p>';
+    return '<div class="barra100" role="img" aria-label="' + esc(itens.map(i => i.rot + ': ' + nf(i.n) + ' (' + nf(pct(i.n), 1) + '%)').join('; ')) + '">' +
+      itens.filter(i => i.n).map(i => '<span style="width:' + pct(i.n) + '%;background:' + i.cor + '"></span>').join('') + '</div>' +
+      '<ul class="leg100">' + itens.map(i => '<li data-k="' + i.k + '"><span class="sw" style="background:' + i.cor + '"></span><span>' + i.rot + ': <b>' + nf(i.n) + '</b> ' +
+        (i.n === 1 ? 'caso' : 'casos') + ' (<span class="pct">' + nf(pct(i.n), 1) + '%</span>)</span></li>').join('') + '</ul>';
+  }
+  return { $, nf, css, semAc, esc, toast, copiar, baixar, barra100 };
 })();

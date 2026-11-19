@@ -79,7 +79,14 @@ WS.analise = (function () {
         (p, i) => (C.faixaEstado[i] < 10 ? ' *' : '') + ' (' + nf(C.faixaEstado[i]) + ' casos)', { v: te, rot: 'estado: ' + nf(te, 1) }, ' por 100 mil/ano');
     }
   }
+  // Onde as mulheres foram atendidas (estado): frase-resumo e barra calculadas dos dados
+  function localAnalise() {
+    const v = C.localEstado, p = k => nf(C.pctLocal(v, k), 1) + '%';
+    $('localfrase').textContent = p(0) + ' foram atendidas na própria região de saúde, ' + p(1) + ' em outra região da Paraíba e ' + p(2) + ' fora do estado (' + nf(v[2]) + ' casos).';
+    $('g-local').innerHTML = WS.util.barra100(C.LOCAIS.map((r, k) => ({ rot: r, n: v[k], cor: css(['--s1', '--s2', '--s4'][k]), k: k + 1 })));
+  }
   function graficos() {
+    localAnalise();
     const tipos = Object.keys(C.TIPOS);
     linhas($('g-serie'), [{ n: 'Todos', v: N.st, c: css('--s1') }, { n: 'Física', v: N.serie('fisica'), c: css('--s2') }, { n: 'Psicológica', v: N.serie('psicologica'), c: css('--s3') }, { n: 'Sexual', v: N.sx, c: css('--s4') }]);
     faixaAnalise();
