@@ -93,6 +93,26 @@ JOIN st_reg r      ON r.co_regsaud = mr.co_regsaud AND r.co_status = 'S'
 JOIN st_reg_mac rm ON rm.co_regsaud = r.co_regsaud
 JOIN st_mac mc     ON mc.co_macsaud = rm.co_macsaud AND mc.co_status = 'S';
 
+-- Local de notificação (TABNET violepb: linha = município de residência; colunas = as 16 regiões de saúde de notificação, 25001 a 25016, nessa ordem)
+CREATE TEMP TABLE st_local (mun text, r01 text, r02 text, r03 text, r04 text, r05 text, r06 text, r07 text, r08 text, r09 text, r10 text, r11 text, r12 text, r13 text, r14 text, r15 text, r16 text, total text);
+\copy st_local FROM 'dados/brutos/sinan_pb_mulheres_residencia_x_regiao_notificacao_2019-2024.csv' CSV HEADER DELIMITER ';'
+CREATE TEMP TABLE st_local_longo AS
+SELECT left(mun, 6) AS cod_ibge6, '250' || lpad(g.i::text, 2, '0') AS co_regsaud, CASE WHEN g.v = '-' THEN 0 ELSE g.v::int END AS casos
+FROM st_local, unnest(ARRAY[r01, r02, r03, r04, r05, r06, r07, r08, r09, r10, r11, r12, r13, r14, r15, r16]) WITH ORDINALITY AS g(v, i)
+WHERE mun ~ '^[0-9]{6} ';
+WITH pb AS (
+  SELECT l.cod_ibge6,
+         SUM(l.casos) FILTER (WHERE l.co_regsaud = r.cod_regiao)  AS mesma,
+         SUM(l.casos) FILTER (WHERE l.co_regsaud <> r.cod_regiao) AS outra
+  FROM st_local_longo l JOIN regiao_saude r USING (cod_ibge6) GROUP BY l.cod_ibge6),
+res AS (SELECT cod_ibge6, SUM(casos)::int AS total FROM notificacao WHERE tipo = 'total' GROUP BY cod_ibge6)
+INSERT INTO notificacao_local (cod_ibge6, categoria, local, casos)
+SELECT res.cod_ibge6, 1, 'mesma região de saúde', COALESCE(pb.mesma, 0) FROM res LEFT JOIN pb USING (cod_ibge6)
+UNION ALL
+SELECT res.cod_ibge6, 2, 'outra região da PB', COALESCE(pb.outra, 0) FROM res LEFT JOIN pb USING (cod_ibge6)
+UNION ALL
+SELECT res.cod_ibge6, 3, 'fora da Paraíba', res.total - COALESCE(pb.mesma, 0) - COALESCE(pb.outra, 0) FROM res LEFT JOIN pb USING (cod_ibge6);
+
 -- Conferências: param a carga se algo não bater
 DO $$
 DECLARE n int; p bigint; c bigint; fx bigint; linhas int; div int; n_mac int;
@@ -131,6 +151,20 @@ BEGIN
   IF div <> 0 THEN RAISE EXCEPTION '% faixas com populacao negativa', div; END IF;
   SELECT count(*) INTO linhas FROM rede_atendimento;
   IF linhas <> 223 THEN RAISE EXCEPTION 'rede_atendimento: % municipios (esperado 223)', linhas; END IF;
+  -- local de notificação: cada linha do TABNET soma o próprio total; três categorias = casos por residência
+  SELECT count(*) INTO div FROM st_local
+  WHERE (SELECT SUM(CASE WHEN v = '-' THEN 0 ELSE v::int END) FROM unnest(ARRAY[r01, r02, r03, r04, r05, r06, r07, r08, r09, r10, r11, r12, r13, r14, r15, r16]) v) <> total::int;
+  IF div <> 0 THEN RAISE EXCEPTION 'local de notificacao: % linhas do TABNET em que as regioes nao somam o total', div; END IF;
+  SELECT count(*) INTO div FROM st_local WHERE mun ~ '^[0-9]{6} ' AND left(mun, 6) NOT IN (SELECT cod_ibge6 FROM municipio);
+  IF div <> 0 THEN RAISE EXCEPTION 'local de notificacao: % municipios desconhecidos', div; END IF;
+  SELECT count(*) INTO div FROM (
+    SELECT n.cod_ibge6 FROM notificacao n WHERE n.tipo = 'total' GROUP BY n.cod_ibge6
+    HAVING SUM(n.casos) <> (SELECT SUM(casos) FROM notificacao_local l WHERE l.cod_ibge6 = n.cod_ibge6)) x;
+  IF div <> 0 THEN RAISE EXCEPTION 'local de notificacao: % municipios em que as tres categorias nao somam os casos por residencia', div; END IF;
+  SELECT count(*), SUM(casos), SUM(casos) FILTER (WHERE categoria = 3) INTO linhas, c, fx FROM notificacao_local;
+  IF linhas <> 223 * 3 OR c <> 10344 OR fx <> 10344 - (SELECT total::int FROM st_local WHERE mun = 'Total') THEN
+    RAISE EXCEPTION 'local de notificacao: % linhas, % casos, % fora da PB (esperado 669, 10344 e 10344 menos o total notificado na PB)', linhas, c, fx; END IF;
+  RAISE NOTICE 'Local de notificacao OK: % casos, dos quais % notificados fora da Paraiba', c, fx;
   SELECT count(*) INTO div FROM municipio WHERE NOT ST_IsValid(geom);
   IF div <> 0 THEN RAISE EXCEPTION '% geometrias invalidas', div; END IF;
   RAISE NOTICE 'Carga OK: % municipios, % casos, 2055832 mulheres (total e por faixa), 16 regioes de saude, rede MUNIC 2023', n, c;

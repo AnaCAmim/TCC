@@ -25,6 +25,11 @@ def main():
     taxa_fx = {(r["cod_ibge7"], int(r["faixa_id"])): float(r["taxa_100mil_ano"]) for r in consulta(
         "SELECT cod_ibge7, faixa_id, taxa_100mil_ano FROM websig.vw_faixa_municipio WHERE taxa_100mil_ano IS NOT NULL")}
     rede = {r["cod_ibge7"]: r for r in consulta("SELECT * FROM websig.rede_atendimento")}
+    local = {}   # cod -> [mesma região de saúde, outra região da PB, fora da Paraíba]
+    pct_local = {}
+    for r in consulta("SELECT cod_ibge7, categoria, casos, pct FROM websig.vw_local_atendimento"):
+        local.setdefault(r["cod_ibge7"], [0, 0, 0])[int(r["categoria"]) - 1] = int(r["casos"])
+        pct_local[(r["cod_ibge7"], int(r["categoria"]))] = float(r["pct"]) if r["pct"] not in ("", None) else None
     fx = consulta("""SELECT m.cod_ibge7, f.faixa_id, f.casos FROM websig.faixa_etaria f
         JOIN websig.municipio m USING (cod_ibge6) ORDER BY m.cod_ibge7, f.faixa_id""")
 
@@ -47,7 +52,7 @@ def main():
         c = m["cod_ibge7"]
         feats.append({"type": "Feature", "geometry": json.loads(m["geom"]),
                       "properties": {"cod": c, "nome": m["nome"], "pop": int(m["pop_fem_2022"]),
-                                     "reg": reg[c]["cod_regiao"], "casos": casos[c], "faixa": faixa[c], "popfx": mulheres_fx[c],
+                                     "reg": reg[c]["cod_regiao"], "casos": casos[c], "faixa": faixa[c], "popfx": mulheres_fx[c], "local": local[c],
                                      # MUNIC 2023, exatamente como declarado: "Sim", "Não" ou "-" (sem dado)
                                      "rede": {k: rede[c][k] for k in ("organismo_politicas_mulheres", "centro_referencia", "casa_abrigo", "delegacia_mulher")}}})
     regioes = {r["cod_regiao"]: {"nome": r["regiao"], "macro": r["macrorregiao"], "cod_macro": r["cod_macro"]}
@@ -76,6 +81,14 @@ def main():
             confere(abs(tx - taxa_fx[(p["cod"], i + 1)]) < 1e-6, f"taxa da faixa {FAIXAS[i]} diverge da view em {p['nome']}")
     confere(sum(sum(f["properties"]["popfx"]) for f in feats) == TOTAL_MULHERES, "mulheres por faixa: total do estado")
     confere(len(rede) == TOTAL_MUNICIPIOS, f"rede de atendimento: {len(rede)} municípios")
+    # Local de notificação: as três categorias somam os casos por residência; % recalculado do arquivo = view
+    for f in feats:
+        p = f["properties"]; tot_p = sum(p["casos"]["total"])
+        confere(sum(p["local"]) == tot_p, f"local de notificação não soma os casos em {p['nome']}")
+        for k in range(3):
+            v = pct_local[(p["cod"], k + 1)]
+            confere((v is None and tot_p == 0) or (tot_p and abs(p["local"][k] * 100 / tot_p - v) < 1e-6), f"% do local de notificação diverge da view em {p['nome']}")
+    confere(sum(sum(f["properties"]["local"]) for f in feats) == TOTAL_CASOS, "local de notificação: total do estado")
     # As fórmulas do painel aplicadas ao arquivo exportado têm de reproduzir a view (acumulado 2019-2024)
     for t in TIPOS:
         est = sum(sum(f["properties"]["casos"][t]) for f in feats)
@@ -92,7 +105,8 @@ def main():
              "fonte": "SINAN/TABNET (notificações de mulheres, município de residência, sem violência autoprovocada) e IBGE Censo 2022",
              "fonte_regioes": "Ministério da Saúde/DATASUS, Base Territorial (jun/2026): região e macrorregião de saúde",
              "fonte_faixas": "IBGE, Censo 2022, SIDRA 9514: mulheres por idade, somadas nas faixas do SINAN",
-             "fonte_rede": "IBGE, MUNIC 2023: serviços declarados pela prefeitura"}
+             "fonte_rede": "IBGE, MUNIC 2023: serviços declarados pela prefeitura",
+             "fonte_local": "SINAN/TABNET: município de residência × região de saúde de notificação; fora da PB = casos por residência − notificados na PB"}
     texto = json.dumps(dados, ensure_ascii=False, separators=(",", ":"))
     (WEB / "dados.json").write_text(texto, encoding="utf-8")
     (WEB / "dados.js").write_text("window.DADOS=" + texto + ";\n", encoding="utf-8")

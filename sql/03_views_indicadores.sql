@@ -67,6 +67,19 @@ SELECT faixa_id, faixa, SUM(casos)::integer AS casos, SUM(mulheres)::integer AS 
 FROM vw_faixa_municipio
 GROUP BY faixa_id, faixa;
 
+-- Local de notificação (contexto): % = casos atendidos na categoria ÷ casos do município × 100
+CREATE OR REPLACE VIEW vw_local_atendimento AS
+SELECT m.cod_ibge7, m.nome, l.categoria, l.local, l.casos,
+       SUM(l.casos) OVER (PARTITION BY l.cod_ibge6)::integer AS total,
+       CASE WHEN SUM(l.casos) OVER (PARTITION BY l.cod_ibge6) > 0
+            THEN l.casos::numeric * 100 / SUM(l.casos) OVER (PARTITION BY l.cod_ibge6) END AS pct
+FROM notificacao_local l JOIN municipio m ON m.cod_ibge6 = l.cod_ibge6;
+
+CREATE OR REPLACE VIEW vw_local_estado AS
+SELECT categoria, local, SUM(casos)::integer AS casos, SUM(SUM(casos)) OVER ()::integer AS total,
+       SUM(casos)::numeric * 100 / SUM(SUM(casos)) OVER () AS pct
+FROM notificacao_local GROUP BY categoria, local;
+
 -- Conferência das views
 DO $$
 DECLARE c bigint; n int; p bigint;

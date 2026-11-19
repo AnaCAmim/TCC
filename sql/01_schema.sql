@@ -83,3 +83,14 @@ CREATE TABLE rede_atendimento (
   casa_abrigo                  varchar(3) NOT NULL CHECK (casa_abrigo IN ('Sim', 'Não', '-')),                   -- MPPM20
   delegacia_mulher             varchar(3) NOT NULL CHECK (delegacia_mulher IN ('Sim', 'Não', '-'))               -- MSEG168
 );
+
+-- Onde as mulheres de cada município foram notificadas (SINAN 2019-2024, todos os tipos, sem autoprovocada). Só contexto.
+-- 1 = mesma região de saúde do município de residência; 2 = outra região da PB; 3 = fora da Paraíba
+-- (3 = casos por residência − casos notificados na PB: o TABNET só lista municípios de notificação da PB).
+CREATE TABLE notificacao_local (
+  cod_ibge6 char(6)     NOT NULL REFERENCES municipio(cod_ibge6),
+  categoria smallint    NOT NULL CHECK (categoria BETWEEN 1 AND 3),
+  local     varchar(30) NOT NULL,
+  casos     integer     NOT NULL CHECK (casos >= 0),
+  PRIMARY KEY (cod_ibge6, categoria)
+);
