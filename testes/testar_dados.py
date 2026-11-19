@@ -89,6 +89,29 @@ difs = [f"{r['periodo']} {r['tipo']}" for r in somas if int(r["est"]) != int(r["
 check(len(somas) == len(TIPOS) * (len(ANOS) + 1) and not difs, f"view da região: as 16 regiões somam o estado em cada período e tipo ({difs[:3]})")
 check(all(p.get("reg") in dj.get("regioes", {}) for p in feats.values()) and len(dj.get("regioes", {})) == 16, "dados.json: todo município tem uma das 16 regiões de saúde")
 
+# Mulheres por faixa etária (SIDRA 9514): 223 × 10 faixas; soma de cada município = total; estado = 2.055.832
+pf = consulta("SELECT cod_ibge7, faixa_id, mulheres FROM websig.populacao_faixa")
+soma_pf = {}
+for r in pf:
+    soma_pf[r["cod_ibge7"]] = soma_pf.get(r["cod_ibge7"], 0) + int(r["mulheres"])
+check(len(pf) == TOTAL_MUNICIPIOS * 10 and len(soma_pf) == TOTAL_MUNICIPIOS, f"populacao_faixa: {len(pf)} linhas (esperado {TOTAL_MUNICIPIOS * 10})")
+check(all(soma_pf[c] == pop_bruto[c][1] for c in pop_bruto), "populacao_faixa: soma das faixas = mulheres do município (IBGE), nos 223")
+check(sum(soma_pf.values()) == TOTAL_MULHERES, f"populacao_faixa: estado soma {sum(soma_pf.values())} (esperado {TOTAL_MULHERES})")
+# Taxa por faixa na view = casos ÷ mulheres × 100.000 ÷ 6; "Ignorada" sem taxa
+vf = consulta("SELECT cod_ibge7, faixa_id, casos, mulheres, taxa_100mil_ano FROM websig.vw_faixa_municipio")
+erro_fx = [r for r in vf if int(r["faixa_id"]) <= 10 and abs(float(r["taxa_100mil_ano"]) - int(r["casos"]) / int(r["mulheres"]) * 100000 / 6) > 1e-6]
+ign_ok = all(r["taxa_100mil_ano"] in ("", None) for r in vf if int(r["faixa_id"]) == 11)
+check(len(vf) == TOTAL_MUNICIPIOS * 11 and not erro_fx and ign_ok, f"vw_faixa_municipio: taxa por faixa = fórmula ({len(erro_fx)} divergências; Ignorada sem taxa: {ign_ok})")
+# Rede de atendimento (MUNIC 2023) = arquivo bruto, valores exatamente como na MUNIC
+rede_bruto = {r["cod_ibge7"]: r for r in ler("ibge_munic2023_rede_atendimento_pb.csv")}
+rede = consulta("SELECT * FROM websig.rede_atendimento")
+COLS_REDE = ["organismo_politicas_mulheres", "centro_referencia", "casa_abrigo", "delegacia_mulher"]
+dif_rede = [r["cod_ibge7"] for r in rede if any(r[k] != rede_bruto[r["cod_ibge7"]][k] for k in COLS_REDE)]
+check(len(rede) == TOTAL_MUNICIPIOS and not dif_rede and all(r[k] in ("Sim", "Não", "-") for r in rede for k in COLS_REDE),
+      f"rede_atendimento: 223 municípios iguais à MUNIC 2023 ({len(dif_rede)} diferenças)")
+check(all(feats[c]["popfx"] == [int(r["mulheres"]) for r in sorted((x for x in pf if x["cod_ibge7"] == c), key=lambda x: int(x["faixa_id"]))] for c in list(feats)[:223])
+      and all(feats[c]["rede"] == {k: rede_bruto[c][k] for k in COLS_REDE} for c in feats), "dados.json: mulheres por faixa e rede MUNIC iguais ao banco")
+
 print(f"Teste dos dados: {len(ok)} verificações OK, {len(falhas)} falhas")
 for f in falhas:
     print("  FALHA:", f)

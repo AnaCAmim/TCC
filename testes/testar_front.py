@@ -10,6 +10,7 @@ import functools
 import http.server
 import io
 import pathlib
+import random
 import sys
 import tempfile
 import threading
@@ -65,6 +66,12 @@ PEQUENO = min((v["casos"], k[0]) for k, v in REF.items() if k[1] == "all" and k[
 REGREF = {(r["cod_regiao"], "all" if r["periodo"] == "2019-2024" else r["periodo"], r["tipo"]): {"nome": r["regiao"], "taxa": float(r["taxa_100mil_ano"])}
           for r in consulta("SELECT cod_regiao, regiao, periodo, tipo, taxa_100mil_ano FROM websig.vw_indicador_regiao")}
 MUNREG = {r["cod_ibge7"]: r["cod_regiao"] for r in consulta("SELECT m.cod_ibge7, r.cod_regiao FROM websig.regiao_saude r JOIN websig.municipio m USING (cod_ibge6)")}
+FXREF = {(r["cod_ibge7"], int(r["faixa_id"])): (int(r["casos"]), float(r["taxa_100mil_ano"])) for r in consulta(
+    "SELECT cod_ibge7, faixa_id, casos, taxa_100mil_ano FROM websig.vw_faixa_municipio WHERE faixa_id <= 10")}
+FXEST = {int(r["faixa_id"]): float(r["taxa_100mil_ano"]) for r in consulta("SELECT faixa_id, taxa_100mil_ano FROM websig.vw_faixa_estado WHERE faixa_id <= 10")}
+with open(RAIZ / "dados" / "brutos" / "ibge_munic2023_rede_atendimento_pb.csv", encoding="utf-8") as _f:
+    REDE_BRUTO = {r["cod_ibge7"]: r for r in csv.DictReader(_f)}
+COLS_REDE = ["organismo_politicas_mulheres", "centro_referencia", "casa_abrigo", "delegacia_mulher"]
 POS_DICA = """(() => { const e = ALVO, t = document.getElementById('tip'), a = e.getBoundingClientRect(), b = t.getBoundingClientRect();
     return {tag: e.tagName.toLowerCase(), rot: e.getAttribute('aria-label') || '', tip: t.innerText, vis: getComputedStyle(t).display,
             cobre: !(b.bottom <= a.top || b.top >= a.bottom || b.right <= a.left || b.left >= a.right)}; })()"""   # etiqueta do mapa: visível, com o nome, sem cobrir o município (ALVO = o polígono)
@@ -174,6 +181,18 @@ with sync_playwright() as pw:
               and fmt(r["taxa"], 1) in ficha and fmt(r["oe"], 2) in ficha and fmt(EST[("all", "total")], 1) in ficha and "Casos por ano" in ficha,
               f"{modo}: ficha de Sousa com 5 indicadores, média do estado, série anual e links 'como calcular'")
         rs = REGREF[(MUNREG[SOUSA], "all", "total")]
+        # Faixa etária: alternância Casos | Taxa por 100 mil/ano, com a taxa do estado como referência e aviso de valor instável
+        pg.click("#painel [data-fx=taxa]"); pg.wait_for_timeout(200)
+        fxt = pg.inner_text("#painel .fxcorpo")
+        ok_fx = all(fmt(FXREF[(SOUSA, i)][1], 1) + (" *" if FXREF[(SOUSA, i)][0] < 10 else "") in fxt for i in range(1, 11))
+        refs = pg.evaluate("[...document.querySelectorAll('#painel .fxcorpo .ref')].map(e => e.title)")
+        check(ok_fx and "valor instável" in fxt and "Ignorada" in fxt and "sem taxa" in fxt and refs == [f"Estado: {fmt(FXEST[i], 1)}" for i in range(1, 11)]
+              and pg.get_attribute("#painel [data-fx=taxa]", "aria-pressed") == "true",
+              f"{modo}: ficha de Sousa com taxa por faixa = view, taxa do estado como referência e aviso de valor instável")
+        if modo == "http":
+            pg.locator("#painel .fxcorpo").scroll_into_view_if_needed(); pg.screenshot(path=str(CAP / "ficha_faixa_taxa.png"))
+        pg.click("#painel [data-fx=casos]"); pg.wait_for_timeout(200)
+        check("Faixa mais atingida" in pg.inner_text("#painel") and "%" in pg.inner_text("#painel .fxcorpo"), f"{modo}: botão Casos volta à contagem por faixa")
         check(f"Média da região de saúde ({rs['nome']}): {fmt(rs['taxa'], 1)}" in ficha, f"{modo}: ficha de Sousa com a média da região de saúde ({rs['nome']}) igual à view")
         pg.click("#painel a[data-ind=taxa]"); pg.wait_for_timeout(400)
         check(pg.evaluate("location.hash") == "#como-calcular" and "alvo" in (pg.get_attribute("#ind-taxa", "class") or ""), f"{modo}: link 'como calcular' leva à explicação da taxa")
@@ -222,8 +241,35 @@ with sync_playwright() as pw:
             for (const per of ['all', ...P.ANOS.map(String)]) out.push([r, per, t, P.taxaRegiao(r, t, per)]); return out; })()""")
         dif = [x for x in calc_reg if abs(x[3] - REGREF[(x[0], x[1], x[2])]["taxa"]) > TOL]
         check(len(calc_reg) == len(REGREF) == 16 * 7 * 4 and not dif, f"{modo}: taxa das 16 regiões de saúde × SQL em {len(calc_reg)} combinações ({len(dif)} divergentes)")
+        # Taxa por faixa do painel = view, em todos os municípios e faixas
+        calc_fx = pg.evaluate("(() => { const P = PAINEL, out = []; for (const f of P.F) for (let i = 0; i < 10; i++) out.push([f.properties.cod, i + 1, P.taxaFaixa(f.properties, i)]); return out; })()")
+        dif = [x for x in calc_fx if abs(x[2] - FXREF[(x[0], x[1])][1]) > TOL]
+        est_fx = pg.evaluate("[...Array(10).keys()].map(i => PAINEL.taxaFaixaEstado(i))")
+        check(len(calc_fx) == len(FXREF) == TOTAL_MUNICIPIOS * 10 and not dif and all(abs(est_fx[i] - FXEST[i + 1]) <= TOL for i in range(10)),
+              f"{modo}: taxa por faixa do painel × view em {len(calc_fx)} município × faixa ({len(dif)} divergentes) e no estado")
+        # Bloco MUNIC 2023 na ficha = arquivo bruto, em 10 municípios sorteados (semente 42)
+        TEXTO = {"Sim": "Sim", "Não": "Não", "-": "Sem dado"}
+        dif_rede = []
+        for c in random.Random(42).sample(sorted(REDE_BRUTO), 10):
+            pg.evaluate(f"location.hash = '#mapa-{c}'"); pg.wait_for_timeout(500)
+            itens = pg.evaluate("[...document.querySelectorAll('#painel .rede li')].map(li => [li.dataset.k, li.dataset.v, li.querySelector('b').textContent, li.querySelector('.ic').textContent])")
+            esperado = [[k, REDE_BRUTO[c][k], TEXTO[REDE_BRUTO[c][k]]] for k in COLS_REDE]
+            if [i[:3] for i in itens] != esperado or any(not i[3] for i in itens):
+                dif_rede.append(c)
+        nota = pg.inner_text("#painel .rede .nota")
+        check(not dif_rede and nota == "Informação declarada pela prefeitura em 2023; serviços criados depois não aparecem.",
+              f"{modo}: bloco MUNIC 2023 da ficha igual ao bruto em 10 municípios sorteados, com ícone, texto e nota fixa ({dif_rede})")
+        if modo == "http":
+            pg.locator("#painel .rede").scroll_into_view_if_needed(); pg.screenshot(path=str(CAP / "ficha_rede_munic.png"))
         # Tabela da Análise (arredondamento) e CSV
         pg.evaluate("location.hash = '#analise'"); pg.wait_for_timeout(300)
+        pg.click("#fxAnalise [data-fxa=taxa]"); pg.wait_for_timeout(200)
+        rot = pg.get_attribute("#g-faixa svg", "aria-label") or ""
+        check(all(fmt(FXEST[i], 1) in rot for i in range(1, 11)) and "estado: " + fmt(EST[("all", "total")], 1) in rot and "não tem taxa" in pg.inner_text("#fxdesc"),
+              f"{modo}: Análise mostra a taxa por faixa do estado com a taxa geral como referência")
+        if modo == "http":
+            pg.locator("#g-faixa").scroll_into_view_if_needed(); pg.screenshot(path=str(CAP / "analise_faixa_taxa.png"))
+        pg.click("#fxAnalise [data-fxa=casos]"); pg.wait_for_timeout(200)
         for t in ["total", "fisica", "psicologica", "sexual"]:
             pg.select_option("#ttipo", t)
             lin = pg.evaluate("() => [...document.querySelectorAll('#tab tbody tr[data-c]')].map(tr => [tr.dataset.c, ...[...tr.querySelectorAll('td')].map(td => td.textContent)])")
