@@ -21,6 +21,10 @@ def main():
         FROM websig.regiao_saude r JOIN websig.municipio m USING (cod_ibge6)""")}
     taxa_reg = {(r["cod_regiao"], r["tipo"]): float(r["taxa_100mil_ano"]) for r in consulta(
         "SELECT cod_regiao, tipo, taxa_100mil_ano FROM websig.vw_indicador_regiao WHERE periodo = '2019-2024'")}
+    popfx = consulta("SELECT cod_ibge7, faixa_id, mulheres FROM websig.populacao_faixa ORDER BY cod_ibge7, faixa_id")
+    taxa_fx = {(r["cod_ibge7"], int(r["faixa_id"])): float(r["taxa_100mil_ano"]) for r in consulta(
+        "SELECT cod_ibge7, faixa_id, taxa_100mil_ano FROM websig.vw_faixa_municipio WHERE taxa_100mil_ano IS NOT NULL")}
+    rede = {r["cod_ibge7"]: r for r in consulta("SELECT * FROM websig.rede_atendimento")}
     fx = consulta("""SELECT m.cod_ibge7, f.faixa_id, f.casos FROM websig.faixa_etaria f
         JOIN websig.municipio m USING (cod_ibge6) ORDER BY m.cod_ibge7, f.faixa_id""")
 
@@ -35,12 +39,17 @@ def main():
     for r in fx:
         faixa.setdefault(r["cod_ibge7"], [0] * len(FAIXAS))[int(r["faixa_id"]) - 1] = int(r["casos"])
 
+    mulheres_fx = {}   # cod -> [mulheres nas 10 faixas do SINAN, sem a "Ignorada"]
+    for r in popfx:
+        mulheres_fx.setdefault(r["cod_ibge7"], [0] * 10)[int(r["faixa_id"]) - 1] = int(r["mulheres"])
     feats = []
     for m in muns:
         c = m["cod_ibge7"]
         feats.append({"type": "Feature", "geometry": json.loads(m["geom"]),
                       "properties": {"cod": c, "nome": m["nome"], "pop": int(m["pop_fem_2022"]),
-                                     "reg": reg[c]["cod_regiao"], "casos": casos[c], "faixa": faixa[c]}})
+                                     "reg": reg[c]["cod_regiao"], "casos": casos[c], "faixa": faixa[c], "popfx": mulheres_fx[c],
+                                     # MUNIC 2023, exatamente como declarado: "Sim", "Não" ou "-" (sem dado)
+                                     "rede": {k: rede[c][k] for k in ("organismo_politicas_mulheres", "centro_referencia", "casa_abrigo", "delegacia_mulher")}}})
     regioes = {r["cod_regiao"]: {"nome": r["regiao"], "macro": r["macrorregiao"], "cod_macro": r["cod_macro"]}
                for r in sorted(reg.values(), key=lambda r: r["cod_regiao"])}
 
@@ -58,6 +67,15 @@ def main():
         ps = [f["properties"] for f in feats if f["properties"]["reg"] == cr]
         tx = sum(sum(p["casos"][t]) for p in ps) / sum(p["pop"] for p in ps) * 100000 / len(ANOS)
         confere(abs(tx - v) < 1e-6, f"taxa da região {cr} ({t}) diverge da view")
+    # Mulheres por faixa: soma = total de cada município; taxa por faixa recalculada do arquivo = view
+    for f in feats:
+        p = f["properties"]
+        confere(sum(p["popfx"]) == p["pop"], f"mulheres por faixa não somam o total em {p['nome']}")
+        for i in range(10):
+            tx = p["faixa"][i] / p["popfx"][i] * 100000 / len(ANOS)
+            confere(abs(tx - taxa_fx[(p["cod"], i + 1)]) < 1e-6, f"taxa da faixa {FAIXAS[i]} diverge da view em {p['nome']}")
+    confere(sum(sum(f["properties"]["popfx"]) for f in feats) == TOTAL_MULHERES, "mulheres por faixa: total do estado")
+    confere(len(rede) == TOTAL_MUNICIPIOS, f"rede de atendimento: {len(rede)} municípios")
     # As fórmulas do painel aplicadas ao arquivo exportado têm de reproduzir a view (acumulado 2019-2024)
     for t in TIPOS:
         est = sum(sum(f["properties"]["casos"][t]) for f in feats)
@@ -72,7 +90,9 @@ def main():
 
     dados = {"type": "FeatureCollection", "features": feats, "anos": ANOS, "faixas": FAIXAS, "regioes": regioes,
              "fonte": "SINAN/TABNET (notificações de mulheres, município de residência, sem violência autoprovocada) e IBGE Censo 2022",
-             "fonte_regioes": "Ministério da Saúde/DATASUS, Base Territorial (jun/2026): região e macrorregião de saúde"}
+             "fonte_regioes": "Ministério da Saúde/DATASUS, Base Territorial (jun/2026): região e macrorregião de saúde",
+             "fonte_faixas": "IBGE, Censo 2022, SIDRA 9514: mulheres por idade, somadas nas faixas do SINAN",
+             "fonte_rede": "IBGE, MUNIC 2023: serviços declarados pela prefeitura"}
     texto = json.dumps(dados, ensure_ascii=False, separators=(",", ":"))
     (WEB / "dados.json").write_text(texto, encoding="utf-8")
     (WEB / "dados.js").write_text("window.DADOS=" + texto + ";\n", encoding="utf-8")
