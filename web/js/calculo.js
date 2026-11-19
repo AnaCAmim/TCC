@@ -22,6 +22,11 @@ WS.calculo = (function () {
     const oe = (p, tipo, per) => casos(p, tipo, per) / esperado(p, tipo, per);
     const valor = (p, ind, tipo, per) => (ind === 'casos' ? casos(p, tipo, per) : ind === 'taxa' ? taxa(p, tipo, per) : oe(p, tipo, per));
     const faixaEstado = FX.map((_, i) => F.reduce((s, f) => s + f.properties.faixa[i], 0));
+    // Taxa por faixa etária = casos da faixa ÷ mulheres da faixa × 100.000 ÷ 6 (as 10 faixas do SINAN; a "Ignorada" não tem taxa)
+    const N_FX_TAXA = 10;
+    const popFaixaEstado = FX.slice(0, N_FX_TAXA).map((_, i) => F.reduce((s, f) => s + f.properties.popfx[i], 0));
+    const taxaFaixa = (p, i) => (i < N_FX_TAXA && p.popfx[i] > 0 ? p.faixa[i] / p.popfx[i] * 1e5 / ANOS.length : null);
+    const taxaFaixaEstado = i => (i < N_FX_TAXA ? faixaEstado[i] / popFaixaEstado[i] * 1e5 / ANOS.length : null);
     const nomePer = per => (per === 'all' ? '2019 a 2024' : String(per));
     const rotFx = f => ({ '<1 Ano': 'Menos de 1', '60 e mais': '60 ou mais', 'Ign/Branco': 'Ignorada' }[f] || f.replace('-', ' a '));
     // Região de saúde: a MESMA taxa, somando casos e mulheres dos municípios da região (média da região na ficha)
@@ -31,13 +36,14 @@ WS.calculo = (function () {
     const popRegiao = reg => munsRegiao(reg).reduce((s, p) => s + p.pop, 0);
     const taxaRegiao = (reg, tipo, per) => casosRegiao(reg, tipo, per) / popRegiao(reg) * 1e5 / anosPer(per);
     const leituraOE = o => (!isFinite(o) ? '' : o < 0.8 ? 'Notifica menos que a média do estado' : o <= 1.25 ? 'Notifica perto da média do estado' : 'Notifica mais que a média do estado');
-    return { F, ANOS, FX, POP, porCod, casos, anosPer, casosEstado, taxa, taxaEstado, esperado, oe, valor, faixaEstado, nomePer, rotFx, leituraOE, REG, munsRegiao, casosRegiao, popRegiao, taxaRegiao, TIPOS, NOME_IND };
+    return { F, ANOS, FX, POP, porCod, casos, anosPer, casosEstado, taxa, taxaEstado, esperado, oe, valor, faixaEstado, popFaixaEstado, taxaFaixa, taxaFaixaEstado, N_FX_TAXA, nomePer, rotFx, leituraOE, REG, munsRegiao, casosRegiao, popRegiao, taxaRegiao, TIPOS, NOME_IND };
   }
 
   // Tela "Como calcular": cada indicador com o que é, fórmula, exemplo com números reais, uso e cuidado
   function telaComoCalcular(C, el) {
     const { nf } = WS.util, ex = Object.values(C.porCod).find(p => p.nome === 'Sousa');
     const exc = C.casos(ex, 'total', 'all'), exe = C.esperado(ex, 'total', 'all'), tot = C.casosEstado('total', 'all'), fx = C.faixaEstado;
+    const cg = Object.values(C.porCod).find(p => p.nome === 'Campina Grande');
     const IND = [
       ['casos', 'Casos notificados', 'Quantas fichas de violência contra mulheres foram registradas no SINAN para mulheres que moram no município.',
         'Contagem direta do TABNET (SINAN), sexo feminino, por município de residência, excluída a violência autoprovocada.',
@@ -53,10 +59,12 @@ WS.calculo = (function () {
         'Estado: física ' + nf(C.casosEstado('fisica', 'all')) + ', psicológica/moral ' + nf(C.casosEstado('psicologica', 'all')) + ', sexual ' + nf(C.casosEstado('sexual', 'all')) + '.',
         'Ajuda a decidir que tipo de serviço reforçar (por exemplo, atendimento à violência sexual).',
         'Uma mesma notificação pode marcar mais de um tipo. Por isso os tipos somados dão mais que o total.'],
-      ['faixa', 'Faixa etária', 'Idade das mulheres e meninas nas notificações.', 'Contagem do TABNET por faixa etária, somando 2019 a 2024, para todos os tipos juntos.',
-        'Estado: 20 a 29 anos tem ' + nf(fx[5]) + ' casos (' + nf(100 * fx[5] / tot, 1) + '%).',
-        'Mostra qual público as políticas precisam alcançar (crianças, adolescentes, adultas, idosas).',
-        'Aqui é contagem, não taxa: não há população feminina por idade de cada município nesta versão.'],
+      ['faixa', 'Faixa etária', 'Idade das mulheres e meninas nas notificações, em casos ou em taxa (botões "Casos | Taxa por 100 mil/ano").',
+        'Casos: contagem do TABNET por faixa etária, somando 2019 a 2024, todos os tipos juntos. Taxa: <code class="f">casos da faixa ÷ mulheres da faixa × 100.000 ÷ 6</code>. As mulheres de cada faixa vêm do Censo 2022 (IBGE, SIDRA 9514), somando os grupos de idade do IBGE nas mesmas faixas do SINAN.',
+        'Estado, 10 a 14 anos: ' + nf(fx[3]) + ' ÷ ' + nf(C.popFaixaEstado[3]) + ' × 100.000 ÷ 6 = ' + nf(C.taxaFaixaEstado(3), 1) + ' por 100 mil por ano, a maior taxa entre as faixas, embora 20 a 29 anos tenha mais casos (' + nf(fx[5]) + '; taxa ' + nf(C.taxaFaixaEstado(5), 1) + '). ' +
+          (cg ? cg.nome + ', 20 a 29 anos: ' + nf(cg.faixa[5]) + ' ÷ ' + nf(cg.popfx[5]) + ' × 100.000 ÷ 6 = ' + nf(C.taxaFaixa(cg, 5), 1) + '.' : ''),
+        'Mostra qual público as políticas precisam alcançar (crianças, adolescentes, adultas, idosas). A taxa permite comparar faixas de tamanhos diferentes.',
+        'As faixas têm larguras diferentes (10 a 14 tem 5 anos; 20 a 29 tem 10): para comparar faixas, use a taxa. Com menos de 10 casos na faixa, a taxa é instável (marcada com *). A faixa "Ignorada" não tem taxa, porque não há mulheres de idade ignorada no Censo.'],
       ['oe', 'Observado ÷ esperado', 'Compara o município com o estado: quantas vezes ele notifica em relação ao que notificaria se seguisse a média estadual.',
         '<code class="f">esperado = mulheres do município × (casos do estado ÷ mulheres do estado)</code> e <code class="f">observado ÷ esperado = casos ÷ esperado</code>.',
         ex.nome + ': esperado ' + nf(exe, 1) + ' casos; observado ' + nf(exc) + '; ' + nf(exc) + ' ÷ ' + nf(exe, 1) + ' = ' + nf(exc / exe, 2) + '. Notificou cerca de ' + nf(100 * exc / exe, 0) + '% do que seria esperado.',
@@ -66,7 +74,7 @@ WS.calculo = (function () {
     el.innerHTML = '<div class="card" style="margin:0"><h2>Os cinco indicadores deste painel</h2><p class="desc" style="margin:0">Todos vêm de duas fontes públicas: SINAN/TABNET (casos) e Censo 2022 do IBGE (número de mulheres). Nenhum modelo estatístico complexo é usado; as contas abaixo podem ser refeitas numa planilha.</p></div>' +
       IND.map(i => '<article id="ind-' + i[0] + '" tabindex="-1"><h2>' + i[1] + '</h2><dl><dt>O que é</dt><dd>' + i[2] + '</dd><dt>Como se calcula</dt><dd>' + i[3] +
         '</dd><dt>Exemplo</dt><dd>' + i[4] + '</dd><dt>Para que serve</dt><dd>' + i[5] + '</dd><dt>Cuidado</dt><dd>' + i[6] + '</dd></dl></article>').join('') +
-      '<div class="card" style="margin:0"><h2>Fontes e limitações</h2><p class="desc" style="margin:0">Notificações: SINAN/TABNET (Ministério da Saúde), mulheres, município de residência, sem violência autoprovocada. Mulheres: Censo 2022 (IBGE, SIDRA 9514), o mesmo denominador em todos os anos. Regiões e macrorregiões de saúde: Base Territorial do Ministério da Saúde/DATASUS (junho de 2026). O SINAN de 2023 e 2024 ainda pode ser revisado. A notificação mede o registro, não a ocorrência.</p></div>';
+      '<div class="card" style="margin:0"><h2>Fontes e limitações</h2><p class="desc" style="margin:0">Notificações: SINAN/TABNET (Ministério da Saúde), mulheres, município de residência, sem violência autoprovocada. Mulheres: Censo 2022 (IBGE, SIDRA 9514), o mesmo denominador em todos os anos. Mulheres por faixa etária: Censo 2022 (IBGE, SIDRA 9514). Serviços declarados pelo município: MUNIC 2023 (IBGE). Regiões e macrorregiões de saúde: Base Territorial do Ministério da Saúde/DATASUS (junho de 2026). O SINAN de 2023 e 2024 ainda pode ser revisado. A notificação mede o registro, não a ocorrência.</p></div>';
   }
   return { criar, telaComoCalcular, TIPOS, NOME_IND };
 })();

@@ -4,7 +4,7 @@
 window.WS = window.WS || {};
 WS.mapa = (function () {
   const { $, nf, css, esc, semAc } = WS.util;
-  const S = { ind: 'taxa', tipo: 'total', per: 'all', reg: '', sel: null, rk: 'maiores', tabela: false };
+  const S = { ind: 'taxa', tipo: 'total', per: 'all', reg: '', sel: null, rk: 'maiores', tabela: false, fx: 'casos' };
   const MIN_CASOS = 10;   // abaixo disso a taxa e o observado ÷ esperado ficam instáveis
   const HINT = {
     taxa: 'Casos por ano para cada 100 mil mulheres. Permite comparar municípios de tamanhos diferentes.',
@@ -139,6 +139,31 @@ WS.mapa = (function () {
     const nomes = C.FX.slice(0, 10).map((f, i) => [f, conhecidas[i]]).filter(x => x[1] === mx).map(x => x[0] === '<1 Ano' ? 'menos de 1 ano' : C.rotFx(x[0]) + ' anos');
     return '<p class="fxtop">Faixa mais atingida: <b>' + nomes.join(' e ') + '</b> (' + nf(mx) + (nomes.length > 1 ? ' casos cada, ' : ' casos, ') + nf(100 * mx / tot, 0) + '%' + (nomes.length > 1 ? ' cada' : '') + ').</p>';
   }
+  // Taxa por faixa: barra = município, traço preto = estado na mesma faixa; * = menos de 10 casos na faixa
+  function barrasTaxa(p) {
+    const tx = C.FX.map((_, i) => C.taxaFaixa(p, i)), te = C.FX.map((_, i) => C.taxaFaixaEstado(i));
+    const escala = Math.max(1, ...tx.filter(v => v != null), ...te.filter(v => v != null));
+    return '<div class="barras">' + C.FX.map((f, i) => {
+      if (tx[i] == null) return '<span class="r">' + C.rotFx(f) + '</span><span class="tr semtaxa"></span><span class="n"><small>sem taxa (' + nf(p.faixa[i]) + (p.faixa[i] === 1 ? ' caso' : ' casos') + ')</small></span>';
+      return '<span class="r">' + C.rotFx(f) + '</span><span class="tr"><span class="b" style="width:' + (100 * tx[i] / escala) + '%"></span>' +
+        '<span class="ref" style="left:' + (100 * te[i] / escala) + '%" title="Estado: ' + nf(te[i], 1) + '"></span></span><span class="n">' + nf(tx[i], 1) + (p.faixa[i] < MIN_CASOS ? ' *' : '') + '</span>';
+    }).join('') + '</div><div class="leg-ref">Barra: taxa do município · traço preto: taxa do estado na mesma faixa (por 100 mil mulheres da faixa, por ano). ' +
+      (p.faixa.slice(0, C.N_FX_TAXA).some(v => v < MIN_CASOS) ? '* menos de 10 casos na faixa: valor instável. ' : '') + 'A faixa "Ignorada" não tem taxa.</div>';
+  }
+  const fxCorpo = p => (S.fx === 'taxa' ? barrasTaxa(p)
+    : barras(C.FX.map((f, i) => [C.rotFx(f), p.faixa[i]]), p.faixa.some(v => v) ? C.faixaEstado.map(v => v / C.casosEstado('total', 'all')) : null));
+  const alternaFx = () => '<div class="alterna noprint" role="group" aria-label="Mostrar a faixa etária como">' +
+    [['casos', 'Casos'], ['taxa', 'Taxa por 100 mil/ano']].map(([k, t]) => '<button type="button" data-fx="' + k + '" aria-pressed="' + (S.fx === k) + '">' + t + '</button>').join('') + '</div>';
+  // Serviços declarados pela prefeitura na MUNIC 2023: ícone + texto (nunca só cor); "-" da MUNIC = "Sem dado"
+  const REDE = [['organismo_politicas_mulheres', 'Organismo de políticas para mulheres'], ['centro_referencia', 'Centro de referência ou atendimento especializado à mulher (CEAM/NIAM)'],
+    ['casa_abrigo', 'Casa-abrigo ou acolhimento para mulheres em situação de violência'], ['delegacia_mulher', 'Delegacia especializada no atendimento à mulher']];
+  const LEITURA_REDE = { 'Sim': ['sim', '✓', 'Sim'], 'Não': ['nao', '✕', 'Não'] };
+  function htmlRede(p) {
+    return '<div class="rede"><h3>Serviços declarados pelo município (MUNIC 2023, IBGE)</h3><ul>' + REDE.map(([k, nome]) => {
+      const v = p.rede[k], [cls, ic, txt] = LEITURA_REDE[v] || ['sd', '?', 'Sem dado'];
+      return '<li class="' + cls + '" data-k="' + k + '" data-v="' + esc(v) + '"><span class="ic" aria-hidden="true">' + ic + '</span><span><b>' + txt + '</b> · ' + nome + '</span></li>';
+    }).join('') + '</ul><p class="nota">Informação declarada pela prefeitura em 2023; serviços criados depois não aparecem.</p></div>';
+  }
   function htmlFicha(p) {
     const t = S.tipo, per = S.per, c = C.casos(p, t, per), ce = C.casosEstado(t, per), tx = C.taxa(p, t, per), te = C.taxaEstado(t, per);
     const e = C.esperado(p, t, per), o = c / e, totEst = C.casosEstado('total', per);
@@ -156,10 +181,10 @@ WS.mapa = (function () {
       '<div class="it"><div class="cab"><span>Observado ÷ esperado</span>' + linkCalc('oe') + '</div><div class="v">' + nf(o, 2) + '</div><div class="c">Esperado se seguisse o estado: ' + nf(e, 1) + ' casos · ' + C.leituraOE(o) + ' (estado = 1)</div></div>' +
       '<div class="it"><div class="cab"><span>Tipos de violência (' + C.nomePer(per) + ')</span>' + linkCalc('tipos') + '</div>' + barras(tiposP, totP ? refTipos : null) +
       '<div class="c">Total de notificações: ' + nf(totP) + '. Uma notificação pode ter mais de um tipo.</div></div>' +
-      '<div class="it"><div class="cab"><span>Faixa etária (2019 a 2024, todos os tipos)</span>' + linkCalc('faixa') + '</div>' + faixaTopo(p) +
-      barras(C.FX.map((f, i) => [C.rotFx(f), p.faixa[i]]), p.faixa.some(v => v) ? C.faixaEstado.map(v => v / C.casosEstado('total', 'all')) : null) + '</div>' +
+      '<div class="it"><div class="cab"><span>Faixa etária (2019 a 2024, todos os tipos)</span>' + linkCalc('faixa') + '</div>' + faixaTopo(p) + alternaFx() + '<div class="fxcorpo">' + fxCorpo(p) + '</div></div>' +
       '</div>';
     h += '<h3>Casos por ano (' + C.TIPOS[t] + ')</h3>' + barras(C.ANOS.map((a, i) => [String(a), p.casos[t][i]]));
+    h += htmlRede(p);
     h += '<div class="btnrow noprint"><button class="btn peq pri" type="button" data-acao="imprimir">Imprimir ficha</button>' +
       '<button class="btn peq" type="button" data-acao="link">Copiar link</button><button class="btn peq" type="button" data-acao="comparar">Comparar com outros</button></div>';
     return h;
@@ -171,6 +196,10 @@ WS.mapa = (function () {
     el.querySelector('[data-acao=imprimir]').addEventListener('click', imprimirFicha);
     el.querySelector('[data-acao=link]').addEventListener('click', () => WS.util.copiar(location.href.split('#')[0] + '#mapa-' + p.cod, 'Link da ficha copiado'));
     el.querySelector('[data-acao=comparar]').addEventListener('click', () => abrirComparar([p.cod]));
+    el.querySelectorAll('[data-fx]').forEach(b => b.addEventListener('click', () => {
+      S.fx = b.dataset.fx; el.querySelector('.fxcorpo').innerHTML = fxCorpo(p);
+      el.querySelectorAll('[data-fx]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.fx === S.fx)));
+    }));
   }
   let voltarFoco = null;
   function mostrarFicha(cod, { focar = false } = {}) {
