@@ -50,6 +50,20 @@ def main():
     confere(len(mun_reg) == TOTAL_MUNICIPIOS and {r["CO_MUNICIP"] for r in mun_reg} == cods6, f"região de saúde: {len(mun_reg)} municípios (esperado {TOTAL_MUNICIPIOS})")
     confere(len(regs) == 16, f"{len(regs)} regiões de saúde na PB (esperado 16)")
 
+    # Mulheres por idade (SIDRA 9514): o "Total" de idade de cada município = mulheres do município
+    sidra = json.loads((BRUTOS / "ibge_sidra9514_mulheres_idade_pb_2022.json").read_text(encoding="utf-8"))
+    tot_idade = {}
+    for r in sidra[0]["resultados"]:
+        cat = [c for c in r["classificacoes"] if c["id"] == "287"][0]["categoria"]
+        if "100362" in cat:   # Idade = Total
+            tot_idade = {x["localidade"]["id"]: int(x["serie"]["2022"]) for x in r["series"]}
+    confere(set(tot_idade) == cods7 and all(tot_idade[r["cod_ibge7"]] == int(r["pop_fem_2022"]) for r in pop),
+            "SIDRA 9514 por idade: total de cada município diferente da população feminina")
+    # MUNIC 2023: 223 municípios, valores Sim / Não / -
+    rede = ler("ibge_munic2023_rede_atendimento_pb.csv")
+    confere({r["cod_ibge7"] for r in rede} == cods7 and all(r[k] in ("Sim", "Não", "-") for r in rede for k in list(r)[2:]),
+            "MUNIC 2023: municípios ou valores inesperados")
+
     print(f"Dados brutos OK: {len(pop)} municípios, {total} casos, {soma_pop} mulheres, {len(regs)} regiões de saúde; série anual {serie}")
 
 
