@@ -18,7 +18,7 @@ WS.mapa = (function () {
   const valor = p => C.valor(p, S.ind, S.tipo, S.per);
   const casosSel = p => C.casos(p, S.tipo, S.per);
   const fmtValor = v => (S.ind === 'casos' ? nf(v) + (v === 1 ? ' caso' : ' casos') : S.ind === 'taxa' ? nf(v, 1) + ' por 100 mil/ano' : nf(v, 2) + '× o esperado');
-  const filtrosTexto = () => C.NOME_IND[S.ind].replace(' por ano', '') + ' · ' + C.TIPOS[S.tipo] + ' · ' + C.nomePer(S.per) + (S.reg ? ' · ' + nomeReg(S.reg) : '');
+  const filtrosTexto = () => C.NOME_IND[S.ind] + ' · ' + C.TIPOS[S.tipo] + ' · ' + C.nomePer(S.per) + (S.reg ? ' · ' + nomeReg(S.reg) : '');
   // tabindex="0" explícito: o Safari, por padrão, não passa por links com o Tab
   const linkCalc = ind => '<a href="#como-calcular" data-ind="' + ind + '" class="noprint" tabindex="0">como calcular</a>';
 
@@ -109,7 +109,7 @@ WS.mapa = (function () {
     const linhas = C.F.map(f => f.properties).filter(noRecorte).sort((a, b) => valor(b) - valor(a));
     const at = k => (S.ind === k ? ' class="ativo"' : '');
     $('maptab').innerHTML = '<table><caption class="sr">' + esc(filtrosTexto()) + '</caption><thead><tr><th>Município</th><th>Mulheres</th><th' + at('casos') + '>Casos</th><th' + at('taxa') +
-      '>Taxa / 100 mil / ano</th><th' + at('oe') + '>Observado ÷ esperado</th></tr></thead><tbody>' +
+      '>Taxa por 100 mil/ano</th><th' + at('oe') + '>Observado ÷ esperado</th></tr></thead><tbody>' +
       linhas.map(p => '<tr data-c="' + p.cod + '" tabindex="0"><td>' + esc(p.nome) + (casosSel(p) < MIN_CASOS ? ' *' : '') + '</td><td>' + nf(p.pop) + '</td><td' + at('casos') + '>' + nf(casosSel(p)) + '</td><td' + at('taxa') + '>' +
         nf(C.taxa(p, S.tipo, S.per), 1) + '</td><td' + at('oe') + '>' + nf(C.oe(p, S.tipo, S.per), 2) + '</td></tr>').join('') +
       '</tbody></table><p class="hint" style="margin-top:8px">' + (S.reg ? nf(linhas.length) + ' municípios da ' + esc(nomeReg(S.reg)) + '. ' : '') + 'Mesmos valores e filtros do mapa, ordenados pelo indicador escolhido. * menos de 10 casos no período: valor instável.</p>';
@@ -159,7 +159,7 @@ WS.mapa = (function () {
     ['casa_abrigo', 'Casa-abrigo ou acolhimento para mulheres em situação de violência'], ['delegacia_mulher', 'Delegacia especializada no atendimento à mulher']];
   const LEITURA_REDE = { 'Sim': ['sim', '✓', 'Sim'], 'Não': ['nao', '✕', 'Não'] };
   function htmlRede(p) {
-    return '<div class="rede"><h3>Serviços declarados pelo município (MUNIC 2023, IBGE)</h3><ul>' + REDE.map(([k, nome]) => {
+    return '<div class="rede"><ul>' + REDE.map(([k, nome]) => {
       const v = p.rede[k], [cls, ic, txt] = LEITURA_REDE[v] || ['sd', '?', 'Sem dado'];
       return '<li class="' + cls + '" data-k="' + k + '" data-v="' + esc(v) + '"><span class="ic" aria-hidden="true">' + ic + '</span><span><b>' + txt + '</b> · ' + nome + '</span></li>';
     }).join('') + '</ul><p class="nota">Informação declarada pela prefeitura em 2023; serviços criados depois não aparecem.</p></div>';
@@ -170,11 +170,21 @@ WS.mapa = (function () {
   function htmlLocal(p) {
     const tot = p.local[0] + p.local[1] + p.local[2];
     const rot = [C.LOCAIS[0] + (C.REG[p.reg] ? ' (' + esc(nomeReg(p.reg)) + ')' : ''), C.LOCAIS[1], C.LOCAIS[2]];
-    return '<div class="local"><h3>Onde as mulheres deste município foram atendidas (2019 a 2024, todos os tipos)</h3>' +
+    return '<div class="local"><p class="nota" style="margin:0 0 6px">Todos os tipos de violência. Local da notificação em relação à região de saúde onde a mulher mora.</p>' +
       WS.util.barra100(rot.map((r, k) => ({ rot: r, n: p.local[k], cor: css(CORES_LOCAL[k]), k: k + 1 }))) +
       (tot && tot < MIN_CASOS ? '<div class="flag">Poucos casos (' + nf(tot) + '): um caso a mais ou a menos muda muito as porcentagens. Valor instável.</div>' : '') +
       '<p class="nota">' + NOTA_LOCAL + '</p></div>';
   }
+  // O que olhar primeiro: frase-resumo calculada (mesmos cortes da legenda: 0,5 · 0,8 · 1,25 · 2)
+  function resumoFicha(c, o, t, per) {
+    const filtro = ' (' + C.TIPOS[t].toLowerCase() + ', ' + C.nomePer(per) + ')';
+    if (!c) return { nivel: 'sd', txt: '<b>Nenhuma notificação</b>' + filtro + '.' };
+    const n = o < 0.5 ? ['bem-menos', 'Notifica bem menos que o estado'] : o < 0.8 ? ['menos', 'Notifica menos que o estado'] : o <= 1.25 ? ['perto', 'Notifica perto da média do estado']
+      : o <= 2 ? ['mais', 'Notifica mais que o estado'] : ['bem-mais', 'Notifica bem mais que o estado'];
+    return { nivel: n[0], txt: '<b>' + n[1] + ':</b> ' + nf(o, 2) + ' do esperado' + filtro + '.' + (c < MIN_CASOS ? ' Poucos casos: valor instável.' : '') };
+  }
+  // seções recolhíveis (no celular, só os 5 indicadores começam abertos)
+  const secao = (id, titulo, corpo) => '<details class="sec" data-sec="' + id + '"' + (id === 'ind' || innerWidth > 860 ? ' open' : '') + '><summary><h3>' + titulo + '</h3></summary>' + corpo + '</details>';
   function htmlFicha(p) {
     const t = S.tipo, per = S.per, c = C.casos(p, t, per), ce = C.casosEstado(t, per), tx = C.taxa(p, t, per), te = C.taxaEstado(t, per);
     const e = C.esperado(p, t, per), o = c / e, totEst = C.casosEstado('total', per);
@@ -184,20 +194,24 @@ WS.mapa = (function () {
     let h = '<button class="x noprint" type="button" aria-label="Fechar ficha">×</button><h2>' + esc(p.nome) + '</h2>' +
       '<div class="sub">' + nf(p.pop) + ' mulheres (Censo 2022) · ' + C.TIPOS[t] + ' · ' + C.nomePer(per) +
       (C.REG[p.reg] ? '<br>' + esc(nomeReg(p.reg)) + ' · ' + esc(C.REG[p.reg].macro) : '') + '</div>';
+    const rs = resumoFicha(c, o, t, per);
+    h += '<p class="resumo" data-nivel="' + rs.nivel + '">' + rs.txt + '</p>';
     if (c < MIN_CASOS) h += '<div class="flag">Poucos casos (' + nf(c) + ' no tipo e período escolhidos). Com números tão pequenos, um caso a mais ou a menos muda muito a taxa e o observado ÷ esperado.</div>';
-    h += '<div class="ind5">' +
+    h += secao('ind', 'Os 5 indicadores', '<div class="ind5">' +
       '<div class="it"><div class="cab"><span>Casos notificados</span>' + linkCalc('casos') + '</div><div class="v">' + nf(c) + '</div><div class="c">Estado: ' + nf(ce) + ' (' + nf(100 * c / ce, 1) + '% do estado; ' + nf(100 * p.pop / C.POP, 1) + '% das mulheres)</div></div>' +
       '<div class="it"><div class="cab"><span>Taxa por 100 mil mulheres por ano</span>' + linkCalc('taxa') + '</div><div class="v">' + nf(tx, 1) + '</div><div class="c">Média do estado: ' + nf(te, 1) +
         (C.REG[p.reg] ? '<br>Média da região de saúde (' + esc(nomeReg(p.reg)) + '): ' + nf(C.taxaRegiao(p.reg, t, per), 1) : '') + '</div></div>' +
       '<div class="it"><div class="cab"><span>Observado ÷ esperado</span>' + linkCalc('oe') + '</div><div class="v">' + nf(o, 2) + '</div><div class="c">Esperado se seguisse o estado: ' + nf(e, 1) + ' casos · ' + C.leituraOE(o) + ' (estado = 1)</div></div>' +
       '<div class="it"><div class="cab"><span>Tipos de violência (' + C.nomePer(per) + ')</span>' + linkCalc('tipos') + '</div>' + barras(tiposP, totP ? refTipos : null) +
       '<div class="c">Total de notificações: ' + nf(totP) + '. Uma notificação pode ter mais de um tipo.</div></div>' +
-      '<div class="it"><div class="cab"><span>Faixa etária (2019 a 2024, todos os tipos)</span>' + linkCalc('faixa') + '</div>' + faixaTopo(p) + alternaFx() + '<div class="fxcorpo">' + fxCorpo(p) + '</div></div>' +
-      '</div>';
-    h += '<h3>Casos por ano (' + C.TIPOS[t] + ')</h3>' + barras(C.ANOS.map((a, i) => [String(a), p.casos[t][i]]));
-    h += htmlLocal(p) + htmlRede(p);
+      '<div class="it"><div class="cab"><span>Faixa etária (2019 a 2024, todos os tipos)</span>' + linkCalc('faixa') + '</div>' + faixaTopo(p) + '<div class="c">Detalhe por faixa, em casos ou em taxa, em "Faixa etária em detalhe".</div></div>' +
+      '</div>');
+    h += secao('faixa', 'Faixa etária em detalhe (2019 a 2024)', alternaFx() + '<div class="fxcorpo">' + fxCorpo(p) + '</div>');
+    h += secao('ano', 'Casos por ano (' + C.TIPOS[t] + ')', barras(C.ANOS.map((a, i) => [String(a), p.casos[t][i]])));
+    h += secao('local', 'Onde as mulheres deste município foram atendidas (2019 a 2024)', htmlLocal(p));
+    h += secao('rede', 'Serviços declarados pelo município (MUNIC 2023, IBGE)', htmlRede(p));
     h += '<div class="btnrow noprint"><button class="btn peq pri" type="button" data-acao="imprimir">Imprimir ficha</button>' +
-      '<button class="btn peq" type="button" data-acao="link">Copiar link</button><button class="btn peq" type="button" data-acao="comparar">Comparar com outros</button></div>';
+      '<button class="btn peq" type="button" data-acao="link">Copiar link da ficha</button><button class="btn peq" type="button" data-acao="comparar">Comparar municípios</button></div>';
     return h;
   }
   function ficha() {
@@ -237,6 +251,7 @@ WS.mapa = (function () {
     $('impressao').innerHTML = '<div class="ficha"><div style="font-size:10pt;color:#444">Violência contra a mulher na Paraíba · ficha do município</div>' + htmlFicha(p) +
       '<div class="rodape">Fonte: SINAN/TABNET (notificações de mulheres, município de residência, sem violência autoprovocada) e Censo 2022 (IBGE). ' +
       'Os números mostram casos notificados, não todos os que acontecem. Impresso em ' + hoje + '. Endereço: ' + esc(location.href.split('#')[0] + '#mapa-' + p.cod) + '</div></div>';
+    $('impressao').querySelectorAll('details').forEach(d => { d.open = true; });
     document.body.classList.add('imprimindo');
     const limpar = () => { document.body.classList.remove('imprimindo'); window.removeEventListener('afterprint', limpar); };
     window.addEventListener('afterprint', limpar);
@@ -356,7 +371,10 @@ WS.mapa = (function () {
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && tip.style.display === 'block') esconderDica(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && !e.defaultPrevented && S.sel && !$('cmp').open && !e.target.closest('input,select')) { e.preventDefault(); location.hash = '#mapa'; } });
     atualizar();
-    return { S, mostrarFicha, fecharFicha, abrirComparar, imprimirFicha, alternarTabela, redesenhar: () => { estilizar(); legenda(); }, invalidar: () => map.invalidateSize(),
+    // usado pelo tour: muda um filtro como se a pessoa tivesse escolhido na lista
+    const definir = (id, v) => { $(id).value = v; $(id).dispatchEvent(new Event('change')); };
+    const verFaixaTaxa = () => { const b = $('painel').querySelector('[data-fx=taxa]'); if (!b) return; b.closest('details').open = true; b.click(); b.closest('details').scrollIntoView({ block: 'start' }); };
+    return { S, mostrarFicha, fecharFicha, abrirComparar, imprimirFicha, alternarTabela, redesenhar: () => { estilizar(); legenda(); }, invalidar: () => map.invalidateSize(), definir, verFaixaTaxa,
       limitesMapa: () => map.getBounds() };
   }
   return { iniciar };
