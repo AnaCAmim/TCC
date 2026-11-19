@@ -154,6 +154,43 @@ footer{background:var(--surface);border-top:1px solid var(--line);font-size:12px
 #copiarLink{margin-left:0}
 .leaflet-bar a,.leaflet-touch .leaflet-bar a{width:44px;height:44px;line-height:44px;font-size:20px}
 .fxtop{font-size:13px;margin:4px 0 6px;color:var(--ink)}
+header .acoes{display:flex;gap:6px;flex-wrap:wrap}
+main{position:relative}
+#carregando{position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--ink-2);font-size:15px}
+.erro{margin:24px auto;max-width:640px;background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--warn-ink);border-radius:10px;padding:16px 20px}
+.erro h2{margin:0 0 8px;font-size:17px}
+.erro code{background:var(--surface-2);padding:1px 4px;border-radius:4px}
+main:has(.erro){display:block;overflow:auto}
+main:has(.erro) .view{display:none}
+#painel .resumo{font-size:14.5px;margin:6px 0 10px;padding:8px 10px;border-radius:8px;background:var(--surface-2);border-left:4px solid var(--ink-3)}
+#painel .resumo[data-nivel="bem-menos"],#painel .resumo[data-nivel="menos"]{border-left-color:var(--d1)}
+#painel .resumo[data-nivel="mais"],#painel .resumo[data-nivel="bem-mais"]{border-left-color:var(--d5)}
+details.sec{border-top:1px solid var(--line);padding:6px 0 4px}
+details.sec>summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;min-height:36px}
+details.sec>summary::-webkit-details-marker{display:none}
+details.sec>summary::before{content:'▸';color:var(--ink-3);font-size:12px;transition:transform .15s}
+details.sec[open]>summary::before{transform:rotate(90deg)}
+details.sec>summary h3{margin:0;font-size:14px}
+details.sec .rede,details.sec .local{margin-top:0;border-top:0;padding-top:0}
+.concl .perg{display:block;margin-top:4px;color:var(--accent);font-size:13.5px;font-style:italic}
+td.vazio{text-align:left;color:var(--ink-2);padding:12px 8px}
+#sobre{max-width:640px;width:calc(100% - 32px);border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--ink);padding:20px 24px}
+#sobre::backdrop{background:rgba(0,0,0,.45)}
+#sobre h2{margin:0 0 6px;font-size:20px}
+#sobre h3{margin:16px 0 6px;font-size:15px}
+#sobre .lead{margin:0;color:var(--ink-2)}
+#sobre ol,#sobre ul{margin:0;padding-left:20px;font-size:14px}
+#sobre li{margin:3px 0}
+#sobre .fontes{font-size:13px;color:var(--ink-2);margin:0}
+#sobre .avisos{margin-top:14px;background:var(--warn-bg);color:var(--warn-ink);border-radius:8px;padding:8px 12px;font-size:13.5px}
+#sobre .avisos p{margin:4px 0}
+#sobre .x{position:absolute;top:10px;right:12px}
+#tour{position:fixed;left:16px;bottom:44px;z-index:2500;max-width:420px;width:calc(100% - 32px);background:var(--surface);color:var(--ink);border:2px solid var(--accent);border-radius:14px;padding:14px 16px;box-shadow:0 8px 28px rgba(0,0,0,.25)}
+#tour[hidden]{display:none}
+#tour h2{margin:2px 0 6px;font-size:17px}
+#tour p{margin:0 0 8px;font-size:14px}
+#tour .tourpasso{font-size:12.5px;font-weight:600;color:var(--accent)}
+#tour .hint{margin:6px 0 0}
 .alterna{display:inline-flex;gap:4px;margin:2px 0 8px}
 .alterna button{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:5px 10px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;min-height:34px}
 .alterna button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent)}
