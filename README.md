@@ -32,7 +32,8 @@ O banco é só local: a senha do Postgres no `atualizar.bat` serve apenas ao con
 | Dado | Fonte | Acesso |
 |---|---|---|
 | Notificações de violência (mulheres, município de residência, 2019–2024, sem violência autoprovocada), por ano, tipo e faixa etária | SINAN/TABNET, Ministério da Saúde | 14/10 e 20/10/2026 |
-| Mulheres por município (denominador) | IBGE, Censo 2022, SIDRA tabela 9514 (API) | 18/11/2026 |
+| Mulheres por município (denominador) e por faixa etária | IBGE, Censo 2022, SIDRA tabela 9514 (API) | 18/11/2026 |
+| Serviços declarados pelo município (contexto da ficha) | IBGE, MUNIC 2023, bloco "Política para Mulheres" e item de delegacia especializada | 18/11/2026 |
 | Nomes oficiais dos municípios | IBGE, API de localidades | 18/11/2026 |
 | Região e macrorregião de saúde | Ministério da Saúde/DATASUS, Base Territorial (jun/2026) | 18/11/2026 |
 | Malha municipal | contornos derivados da malha municipal do IBGE, via [tbrugz/geodata-br](https://github.com/tbrugz/geodata-br), licença CC0 1.0 (domínio público; conferida na página do repositório em 18/11/2026) | 14/10/2026 |
@@ -48,7 +49,7 @@ As mesmas fórmulas estão nas views SQL e no painel (`web/js/calculo.js`). O te
 | Casos notificados | contagem do SINAN | 15 casos |
 | Taxa por 100 mil mulheres por ano | casos ÷ mulheres × 100.000 ÷ número de anos (6 no acumulado, 1 num ano) | 15 ÷ 34.824 × 100.000 ÷ 6 = 7,2 (estado: 83,9) |
 | Tipos de violência | casos de física, psicológica/moral e sexual (uma notificação pode ter mais de um tipo; não somam o total) | — |
-| Faixa etária | casos por faixa de idade, 2019–2024 (contagem, não taxa) | mais atingidas: 20 a 29 e 30 a 39 anos (4 casos cada) |
+| Faixa etária | casos por faixa de idade, 2019–2024; e taxa da faixa = casos da faixa ÷ mulheres da faixa × 100.000 ÷ 6 (a faixa "Ignorada" não tem taxa) | mais atingidas: 20 a 29 e 30 a 39 anos (4 casos cada). Estado, 10 a 14 anos: 1.315 ÷ 138.805 × 100.000 ÷ 6 = 157,9 |
 | Observado ÷ esperado | esperado = mulheres do município × (casos do estado ÷ mulheres do estado); O/E = casos ÷ esperado (1 = igual ao estado) | esperado 175,2; 15 ÷ 175,2 = 0,09 |
 
 **Média da região de saúde** (na ficha e na legenda): a mesma taxa, somando os casos e as mulheres dos municípios da região. O observado ÷ esperado continua comparando com o estado.
@@ -59,14 +60,15 @@ SELECT nome, casos, round(taxa_100mil_ano, 1) AS taxa, round(o_sobre_e, 2) AS oe
 FROM websig.vw_indicador_municipio_ano_tipo
 WHERE periodo = '2019-2024' AND tipo = 'total' ORDER BY o_sobre_e LIMIT 10;
 ```
-Views: `vw_indicador_municipio_ano_tipo` (município × período × tipo), `vw_indicador_estado` e `vw_indicador_regiao`.
+Views: `vw_indicador_municipio_ano_tipo` (município × período × tipo), `vw_indicador_estado`, `vw_indicador_regiao`, `vw_faixa_municipio` e `vw_faixa_estado` (taxa por faixa etária).
 
 ## O que o painel oferece
 
 - Filtros de indicador, tipo de violência, período (cada ano ou 2019–2024) e **região de saúde** (16 regiões; recorta o mapa, o ranking e a tabela e aproxima o mapa da região).
 - Título do mapa com os filtros ativos; legenda com a média do estado (e da região, quando escolhida).
 - Ranking dos 10 maiores e dos 10 menores (nos menores entram só municípios com pelo menos 10 casos).
-- **Ficha do município:** os 5 indicadores comparados com o estado e com a região de saúde, série anual, tipos, faixa etária ("Faixa mais atingida"), aviso de poucos casos, link "como calcular" e **Imprimir ficha**.
+- **Ficha do município:** os 5 indicadores comparados com o estado e com a região de saúde, série anual, tipos, faixa etária ("Faixa mais atingida" e botões **Casos | Taxa por 100 mil/ano**, com a taxa do estado como referência), aviso de poucos casos, link "como calcular" e **Imprimir ficha**.
+- **Serviços declarados pelo município (MUNIC 2023, IBGE):** organismo de políticas para mulheres, centro de referência, casa-abrigo e delegacia especializada, com ícone e texto (sim / não / sem dado). É contexto: não entra em nenhuma conta nem no mapa.
 - Comparar 2 ou 3 municípios; ver o mapa como tabela; baixar CSV (separador `;`, vírgula decimal, abre direto no Excel ou no Calc).
 - Endereço por tela e por município: `#mapa`, `#analise`, `#como-calcular`, `#mapa-<código IBGE>` (ex.: `#mapa-2516201` é Sousa), com o botão **Copiar link**.
 - Acessibilidade (WCAG 2.1 AA): contraste conferido nos temas claro e escuro, paleta testada para daltonismo, uso completo pelo teclado (Tab percorre também os municípios do mapa e Enter abre a ficha), etiqueta do município também no toque (1º toque mostra, 2º abre a ficha), funciona no celular. Revisão completa em [`docs/websig_usabilidade.md`](docs/websig_usabilidade.md).
@@ -74,6 +76,10 @@ Views: `vw_indicador_municipio_ano_tipo` (município × período × tipo), `vw_i
 | Região de saúde | Celular | Teclado no mapa |
 |---|---|---|
 | ![Filtro por região de saúde](capturas/regiao_saude_filtro.png) | ![Ficha no celular](capturas/celular_claro_mapa_ficha.png) | ![Município com foco do teclado](capturas/mapa_foco_teclado.png) |
+
+| Faixa etária em taxa | Serviços declarados (MUNIC 2023) |
+|---|---|
+| ![Faixa etária como taxa por 100 mil](capturas/ficha_faixa_taxa.png) | ![Serviços declarados pelo município](capturas/ficha_rede_munic.png) |
 
 | Análise | Como calcular | Tema escuro |
 |---|---|---|
@@ -83,8 +89,8 @@ A ficha impressa (botão **Imprimir ficha**) sai numa folha limpa, com fonte e d
 
 ## Testes
 
-- `testes/testar_dados.py`: totais, somas e coerência do banco (só biblioteca padrão).
-- `testes/testar_front.py`: o painel nos dois modos de abertura (arquivo e servidor); taxa e O/E iguais à view em 6.244 combinações e taxa das 16 regiões em 448; links, ficha, impressão, comparação, CSV, filtro de região, teclado (inclusive no mapa), toque e telas em 1366, 1920 e 390 px, claro e escuro.
+- `testes/testar_dados.py`: totais, somas e coerência do banco, inclusive mulheres por faixa (soma 2.055.832 por município e no estado) e MUNIC igual ao bruto (só biblioteca padrão).
+- `testes/testar_front.py`: o painel nos dois modos de abertura (arquivo e servidor); taxa e O/E iguais à view em 6.244 combinações taxa das 16 regiões em 448 e taxa por faixa em 2.230; bloco MUNIC igual ao bruto em 10 municípios sorteados; links, ficha, impressão, comparação, CSV, filtro de região, teclado (inclusive no mapa), toque e telas em 1366, 1920 e 390 px, claro e escuro.
 - `testes/testar_usabilidade.py`: refaz as 5 tarefas do teste com usuários a partir da página inicial, conta as ações (todas com 1 ou 2) e confere contraste, daltonismo e celular em 320 px.
 - Os dois últimos aceitam `--navegador firefox` ou `--navegador webkit`.
 
@@ -99,7 +105,8 @@ A ficha impressa (botão **Imprimir ficha**) sai numa folha limpa, com fonte e d
 ```
 dados/brutos/   arquivos originais do TABNET, IBGE e DATASUS, com fontes e datas (FONTES.md)
 sql/            01_schema, 02_carga (aborta se os totais não baterem), 03_views_indicadores
-pipeline/       conferir.py (dados brutos), exportar.py (gera os dados do painel), banco.py (acesso ao banco)
+pipeline/       conferir.py (dados brutos), exportar.py (gera os dados do painel), banco.py (acesso ao banco),
+                extrair_munic2023.py (extrai a PB da planilha da MUNIC; precisa de openpyxl)
 web/            o painel: index.html, css/, js/ (util, dados, calculo, mapa, analise, app), vendor/leaflet, dados.json e dados.js
 testes/         testes acima, respostas_tarefas.py e gerar_material_teste.py (gabarito e planilha do teste com usuários)
 capturas/       telas geradas pelos testes (só as do README vão para o repositório)
@@ -114,7 +121,8 @@ Tecnologias: PostgreSQL 16 + PostGIS 3.4 (Docker), Python 3 (só biblioteca padr
 - Mede **notificação**, não ocorrência: um município que notifica pouco pode ter dificuldade de registro, não menos violência.
 - O denominador é o mesmo (mulheres no Censo 2022) para todos os anos.
 - Os tipos de violência se sobrepõem e não somam o total.
-- A faixa etária é contagem, não taxa: não há população feminina por idade de cada município nesta versão.
+- A taxa por faixa etária usa as mulheres do Censo 2022 para os 6 anos; com menos de 10 casos na faixa, ela é instável (o painel marca com *).
+- Os serviços da MUNIC 2023 são declarados pela prefeitura; serviços criados depois de 2023 não aparecem, e "sem dado" não quer dizer que o serviço não existe.
 - O SINAN de 2023 e 2024 ainda pode ser revisado.
 - Municípios com menos de 10 casos têm valores instáveis (o painel avisa).
 
