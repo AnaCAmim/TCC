@@ -112,6 +112,23 @@ check(len(rede) == TOTAL_MUNICIPIOS and not dif_rede and all(r[k] in ("Sim", "N�
 check(all(feats[c]["popfx"] == [int(r["mulheres"]) for r in sorted((x for x in pf if x["cod_ibge7"] == c), key=lambda x: int(x["faixa_id"]))] for c in list(feats)[:223])
       and all(feats[c]["rede"] == {k: rede_bruto[c][k] for k in COLS_REDE} for c in feats), "dados.json: mulheres por faixa e rede MUNIC iguais ao banco")
 
+# Local de notificação: as três categorias somam os casos por residência em todos os municípios e no estado
+loc = consulta("SELECT cod_ibge7, categoria, casos, total, pct FROM websig.vw_local_atendimento")
+res = {}
+for r in consulta("SELECT m.cod_ibge7, SUM(n.casos) AS c FROM websig.notificacao n JOIN websig.municipio m USING (cod_ibge6) WHERE n.tipo = 'total' GROUP BY m.cod_ibge7"):
+    res[r["cod_ibge7"]] = int(r["c"])
+soma_loc = {}
+for r in loc:
+    soma_loc[r["cod_ibge7"]] = soma_loc.get(r["cod_ibge7"], 0) + int(r["casos"])
+check(len(loc) == TOTAL_MUNICIPIOS * 3 and soma_loc == res, f"local de notificação: as 3 categorias somam os casos por residência nos {len(soma_loc)} municípios")
+with open(BRUTOS / "sinan_pb_mulheres_residencia_x_regiao_notificacao_2019-2024.csv", encoding="utf-8") as f:
+    total_pb = int([l for l in f if l.startswith('"Total"')][0].strip().split(";")[-1])
+fora = sum(int(r["casos"]) for r in loc if r["categoria"] == "3")
+check(sum(soma_loc.values()) == TOTAL_CASOS and fora == TOTAL_CASOS - total_pb, f"local de notificação: estado {sum(soma_loc.values())} casos; fora da PB {fora} = {TOTAL_CASOS} − {total_pb}")
+err_pct = [r for r in loc if int(r["total"]) and abs(float(r["pct"]) - int(r["casos"]) * 100 / int(r["total"])) > 1e-6]
+check(not err_pct and all(feats[r["cod_ibge7"]]["local"][int(r["categoria"]) - 1] == int(r["casos"]) for r in loc),
+      f"local de notificação: % da view = fórmula e dados.json igual ao banco ({len(err_pct)} divergências)")
+
 print(f"Teste dos dados: {len(ok)} verificações OK, {len(falhas)} falhas")
 for f in falhas:
     print("  FALHA:", f)

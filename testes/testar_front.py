@@ -72,6 +72,9 @@ FXEST = {int(r["faixa_id"]): float(r["taxa_100mil_ano"]) for r in consulta("SELE
 with open(RAIZ / "dados" / "brutos" / "ibge_munic2023_rede_atendimento_pb.csv", encoding="utf-8") as _f:
     REDE_BRUTO = {r["cod_ibge7"]: r for r in csv.DictReader(_f)}
 COLS_REDE = ["organismo_politicas_mulheres", "centro_referencia", "casa_abrigo", "delegacia_mulher"]
+LOCREF = {(r["cod_ibge7"], int(r["categoria"])): (int(r["casos"]), int(r["total"]), float(r["pct"]) if r["pct"] not in ("", None) else None)
+          for r in consulta("SELECT cod_ibge7, categoria, casos, total, pct FROM websig.vw_local_atendimento")}
+LOCEST = {int(r["categoria"]): (int(r["casos"]), float(r["pct"])) for r in consulta("SELECT categoria, casos, pct FROM websig.vw_local_estado")}
 POS_DICA = """(() => { const e = ALVO, t = document.getElementById('tip'), a = e.getBoundingClientRect(), b = t.getBoundingClientRect();
     return {tag: e.tagName.toLowerCase(), rot: e.getAttribute('aria-label') || '', tip: t.innerText, vis: getComputedStyle(t).display,
             cobre: !(b.bottom <= a.top || b.top >= a.bottom || b.right <= a.left || b.left >= a.right)}; })()"""   # etiqueta do mapa: visível, com o nome, sem cobrir o município (ALVO = o polígono)
@@ -247,6 +250,20 @@ with sync_playwright() as pw:
         est_fx = pg.evaluate("[...Array(10).keys()].map(i => PAINEL.taxaFaixaEstado(i))")
         check(len(calc_fx) == len(FXREF) == TOTAL_MUNICIPIOS * 10 and not dif and all(abs(est_fx[i] - FXEST[i + 1]) <= TOL for i in range(10)),
               f"{modo}: taxa por faixa do painel × view em {len(calc_fx)} município × faixa ({len(dif)} divergentes) e no estado")
+        # Local de atendimento: % do painel = view (todos os municípios); ficha com número e %; aviso de valor instável
+        calc_loc = pg.evaluate("(() => PAINEL.F.flatMap(f => [0, 1, 2].map(k => [f.properties.cod, k + 1, PAINEL.pctLocal(f.properties.local, k)])))()")
+        dif = [x for x in calc_loc if (x[2] is None) != (LOCREF[(x[0], x[1])][2] is None) or (x[2] is not None and abs(x[2] - LOCREF[(x[0], x[1])][2]) > TOL)]
+        check(len(calc_loc) == TOTAL_MUNICIPIOS * 3 and not dif, f"{modo}: % do local de atendimento × view em {len(calc_loc)} município × categoria ({len(dif)} divergentes)")
+        PEQ_LOC = min(c for (c, k), v in LOCREF.items() if k == 1 and 0 < v[1] < 10)
+        for c in [SOUSA, PEQ_LOC]:
+            pg.evaluate(f"location.hash = '#mapa-{c}'"); pg.wait_for_timeout(500)
+            txt = pg.inner_text("#painel .local")
+            ok_l = all(f"{LOCREF[(c, k)][0]} " in txt and fmt(LOCREF[(c, k)][2], 1) + "%" in txt for k in (1, 2, 3))
+            instavel = "Valor instável" in txt
+            check(ok_l and instavel == (LOCREF[(c, 1)][1] < 10) and "o dado não diz o motivo" in txt and pg.locator("#painel .local .barra100 span").count() >= 1,
+                  f"{modo}: ficha ({REF[(c, 'all', 'total')]['nome']}) mostra onde as mulheres foram atendidas, com número, % e aviso de instabilidade quando < 10 casos")
+            if modo == "http" and c == SOUSA:
+                pg.locator("#painel .local").scroll_into_view_if_needed(); pg.screenshot(path=str(CAP / "ficha_local_atendimento.png"))
         # Bloco MUNIC 2023 na ficha = arquivo bruto, em 10 municípios sorteados (semente 42)
         TEXTO = {"Sim": "Sim", "Não": "Não", "-": "Sem dado"}
         dif_rede = []
@@ -263,6 +280,12 @@ with sync_playwright() as pw:
             pg.locator("#painel .rede").scroll_into_view_if_needed(); pg.screenshot(path=str(CAP / "ficha_rede_munic.png"))
         # Tabela da Análise (arredondamento) e CSV
         pg.evaluate("location.hash = '#analise'"); pg.wait_for_timeout(300)
+        frase = pg.inner_text("#localfrase")
+        esperada = (f"{fmt(LOCEST[1][1], 1)}% foram atendidas na própria região de saúde, {fmt(LOCEST[2][1], 1)}% em outra região da Paraíba "
+                    f"e {fmt(LOCEST[3][1], 1)}% fora do estado ({LOCEST[3][0]} casos).")
+        check(frase == esperada, f"{modo}: frase do estado na Análise igual ao cálculo do banco ({frase!r})")
+        if modo == "http":
+            pg.locator("#g-local").scroll_into_view_if_needed(); pg.screenshot(path=str(CAP / "analise_local_atendimento.png"))
         pg.click("#fxAnalise [data-fxa=taxa]"); pg.wait_for_timeout(200)
         rot = pg.get_attribute("#g-faixa svg", "aria-label") or ""
         check(all(fmt(FXEST[i], 1) in rot for i in range(1, 11)) and "estado: " + fmt(EST[("all", "total")], 1) in rot and "não tem taxa" in pg.inner_text("#fxdesc"),
