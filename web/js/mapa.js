@@ -38,17 +38,119 @@ WS.mapa = (function () {
     c = c.filter((x, i) => i === 0 || x > c[i - 1]);
     return { cort: c, cores: ['--q1', '--q2', '--q3', '--q4', '--q5'].slice(5 - (c.length + 1)), rot: faixasRot(c, 0) };
   }
-  const corDe = v => { let i = 0; while (i < CL.cort.length && v >= CL.cort[i]) i++; return css(CL.cores[i]); };
+  const classeDe = v => { let i = 0; while (i < CL.cort.length && v >= CL.cort[i]) i++; return i; };
+  const corDe = v => css(CL.cores[classeDe(v)]);
+
+  /* ---------- cartografia: centroides, símbolos proporcionais, hachura, contornos, rótulos ---------- */
+  const R_MAX = 26;   // raio (px) do maior círculo; área do círculo ∝ casos, logo raio ∝ raiz quadrada dos casos
+  const POLOS = ['João Pessoa', 'Campina Grande', 'Patos', 'Sousa', 'Cajazeiras', 'Guarabira', 'Monteiro'];   // em ordem de prioridade
+  const TITULO_LEG = { taxa: 'Taxa por 100 mil mulheres por ano', casos: 'Casos notificados (número de notificações)', oe: 'Observado ÷ esperado (1 = igual ao estado)' };
+  let grupoSimb, rSimb, camRegioes, camEstado, rotulos = [], centro = {}, ESC = null, estadoB, zoomInicial = 7.5, verRegioes = true, chavePadroes = '';
+  const raio = v => ESC.rmax * Math.sqrt(v / ESC.vmax);
+  function areaAnel(a) { let s = 0; for (let i = 0; i < a.length - 1; i++) s += a[i][0] * a[i + 1][1] - a[i + 1][0] * a[i][1]; return s / 2; }
+  function dentroAnel(pt, a) {
+    let d = false;
+    for (let i = 0, j = a.length - 1; i < a.length; j = i++) {
+      const [xi, yi] = a[i], [xj, yj] = a[j];
+      if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi) d = !d;
+    }
+    return d;
+  }
+  // centroide do maior polígono do município; se cair fora (forma côncava), o ponto interno mais próximo dele
+  function centroide(geom) {
+    const polis = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates;
+    let anel = polis[0][0], amax = -1;
+    polis.forEach(pl => { const a = Math.abs(areaAnel(pl[0])); if (a > amax) { amax = a; anel = pl[0]; } });
+    let cx = 0, cy = 0, A = 0;
+    for (let i = 0; i < anel.length - 1; i++) { const [x0, y0] = anel[i], [x1, y1] = anel[i + 1], k = x0 * y1 - x1 * y0; A += k; cx += (x0 + x1) * k; cy += (y0 + y1) * k; }
+    let c = [cx / (3 * A), cy / (3 * A)];
+    if (!dentroAnel(c, anel)) {
+      const xs = anel.map(p => p[0]), ys = anel.map(p => p[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+      let melhor = null;
+      for (let i = 1; i < 20; i++) for (let j = 1; j < 20; j++) {
+        const q = [x0 + (x1 - x0) * i / 20, y0 + (y1 - y0) * j / 20];
+        if (dentroAnel(q, anel)) { const d = (q[0] - c[0]) ** 2 + (q[1] - c[1]) ** 2; if (!melhor || d < melhor[1]) melhor = [q, d]; }
+      }
+      if (melhor) c = melhor[0];
+    }
+    return L.latLng(c[1], c[0]);
+  }
+  // hachura: linhas diagonais escuras sobre cores claras e claras sobre cores escuras (contraste ≥ 3:1)
+  function luminancia(cor) {
+    const h = cor.replace('#', ''), v = [0, 2, 4].map(i => parseInt(h.substr(i, 2), 16) / 255).map(c => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+  }
+  // a linha da hachura é a que der mais contraste com a cor de fundo (escura ou clara)
+  const contrasteCor = (a, b) => { const x = luminancia(a), y = luminancia(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const linhaHachura = cor => (contrasteCor(cor, '#3a3833') >= contrasteCor(cor, '#f2f1ec') ? '#3a3833' : '#f2f1ec');
+  function padroes() {
+    const cores = CL.cores.map(v => css(v)), chave = cores.join();
+    if (chave === chavePadroes) return;
+    chavePadroes = chave;
+    const svg = map.getRenderer(camada.getLayers()[0])._container;
+    let defs = svg.querySelector('defs');
+    if (!defs) { defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs'); svg.insertBefore(defs, svg.firstChild); }
+    defs.innerHTML = cores.map((cor, i) => '<pattern id="hach-' + i + '" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">' +
+      '<rect width="8" height="8" fill="' + cor + '"/><line x1="1" y1="0" x2="1" y2="8" stroke="' + linhaHachura(cor) + '" stroke-width="1"/></pattern>').join('');
+  }
+  function desenharSimbolos() {
+    grupoSimb.clearLayers(); ESC = null;
+    if (S.ind !== 'casos') return;
+    ESC = { vmax: Math.max(1, ...C.F.map(f => casosSel(f.properties))), rmax: R_MAX };   // escala do estado inteiro (comparável entre regiões)
+    C.F.map(f => f.properties).filter(p => casosSel(p) > 0).sort((a, b) => casosSel(b) - casosSel(a)).forEach(p => {   // maiores primeiro = atrás
+      const c = L.circleMarker(centro[p.cod], { renderer: rSimb, radius: raio(casosSel(p)), fillColor: css('--simbolo'), fillOpacity: 0.6, color: css('--surface'), weight: 0.8 });
+      c.feature = { properties: p };
+      ligar(c, p.cod, porCamada[p.cod]);
+      c.addTo(grupoSimb);
+      c.getElement().setAttribute('data-cod', p.cod);
+    });
+  }
+  const estiloRegiao = f => (f.properties.cod === S.reg ? { fill: false, color: css('--accent'), weight: 3.2, opacity: 1 }
+    : { fill: false, color: css('--ink-2'), weight: 1.3, opacity: verRegioes ? 0.75 : 0 });
+  // rótulos das cidades-polo: em ordem de prioridade, sem sobrepor outro rótulo, a ficha, a legenda ou o título
+  function arrumarRotulos() {
+    const vistos = [], evitar = ['painel', 'leg', 'mapatitulo'].map(id => $(id)).filter(e => e && e.offsetParent && e.style.display !== 'none').map(e => e.getBoundingClientRect());
+    const bate = r => [...vistos, ...evitar].some(o => !(r.right < o.left || r.left > o.right || r.bottom < o.top || r.top > o.bottom));
+    rotulos.forEach((m, i) => {
+      const el = m.getElement(); if (!el) return;
+      el.style.visibility = 'visible';
+      // tenta o texto à direita do ponto e, se bater em algo, à esquerda; senão, esconde
+      const lado = ['', 'esq'].find(c => { el.classList.toggle('esq', c === 'esq'); return !bate(el.firstChild.getBoundingClientRect()); });
+      if (lado === undefined || (i >= 5 && map.getZoom() < zoomInicial)) el.style.visibility = 'hidden'; else vistos.push(el.firstChild.getBoundingClientRect());
+    });
+  }
+  // área livre do mapa: desconta o título e, com a ficha aberta, a largura (computador) ou a altura (celular) da ficha
+  function areaLivre() {
+    const big = innerWidth > 860, aberta = S.sel && !S.tabela && $('painel').style.display !== 'none';
+    let br = [16, 16];
+    if (aberta) br = big ? [$('painel').offsetWidth + 28, 16] : [16, $('painel').offsetHeight + 16];
+    else if (big && $('leg').offsetWidth) br = [$('leg').offsetWidth + 28, 16];   // a legenda não cobre o estado
+    return { paddingTopLeft: [16, 56], paddingBottomRight: br };
+  }
+  const limitesRecorte = () => {
+    if (!S.reg) return estadoB;
+    const b = L.latLngBounds([]); C.F.filter(f => noRecorte(f.properties)).forEach(f => b.extend(porCamada[f.properties.cod].getBounds())); return b;
+  };
+
 
   /* ---------- desenho ---------- */
   function estilizar() {
-    CL = classes(); const bord = css('--surface');
+    CL = classes(); const bord = css('--surface'), simb = S.ind === 'casos';
+    if (!simb) padroes();
     camada.eachLayer(l => {
-      const p = l.feature.properties, s = S.sel === p.cod, dentro = noRecorte(p), el = l.getElement();
-      l.setStyle({ fillColor: corDe(valor(p)), fillOpacity: dentro ? 1 : 0.15, color: s ? css('--accent') : bord, weight: s ? 3.5 : 0.8 });
+      const p = l.feature.properties, s = S.sel === p.cod, dentro = noRecorte(p), el = l.getElement(), instavel = !simb && casosSel(p) < MIN_CASOS;
+      const fill = simb ? css('--base-mapa') : instavel ? 'url(#hach-' + classeDe(valor(p)) + ')' : corDe(valor(p));
+      l.setStyle({ fillColor: fill, fillOpacity: dentro ? 1 : (simb ? 0.45 : 0.15), color: s ? css('--accent') : bord, weight: s ? 3.5 : 0.8 });
       el.tabIndex = dentro ? 0 : -1;
-      el.setAttribute('aria-label', p.nome + ': ' + fmtValor(valor(p)));
+      el.setAttribute('data-instavel', instavel ? '1' : '0');
+      el.setAttribute('aria-label', p.nome + ': ' + fmtValor(valor(p)) + (instavel ? ' (menos de 10 casos: valor instável)' : ''));
     });
+    if (grupoSimb) grupoSimb.eachLayer(c => {
+      const p = c.feature.properties, s = S.sel === p.cod, dentro = noRecorte(p);
+      c.setStyle({ fillColor: css('--simbolo'), fillOpacity: dentro ? 0.6 : 0.12, opacity: dentro ? 1 : 0.25, color: s ? css('--accent') : css('--surface'), weight: s ? 2.5 : 0.8 });
+    });
+    if (camRegioes) camRegioes.setStyle(estiloRegiao);
+    if (camEstado) camEstado.setStyle({ fill: false, color: css('--ink'), weight: 2.4, opacity: 0.9 });
     frente(S.sel);
   }
   // O selecionado vai para a frente (borda inteira visível); ao trocar, o anterior volta ao lugar em ordem alfabética
@@ -74,18 +176,42 @@ WS.mapa = (function () {
     tip.style.top = y + 'px';
   }
   function esconderDica() { tip.style.display = 'none'; dicaCod = null; dicaModo = null; }
-  function enquadrar() {
-    const ls = C.F.filter(f => noRecorte(f.properties)).map(f => porCamada[f.properties.cod]);
-    const b = L.latLngBounds([]); ls.forEach(l => b.extend(l.getBounds()));
-    const big = innerWidth > 860;
-    map.fitBounds(b, { paddingTopLeft: [20, 60], paddingBottomRight: [big ? (S.sel ? 380 : 300) : 20, big ? 20 : (S.sel ? 320 : 20)] });
+  // enquadra o recorte na área livre e só depois ajusta o limite de arraste (vista atual + meia Paraíba de margem),
+  // para o limite nunca puxar o mapa de volta para trás da ficha
+  function limitarArraste() { map.setMaxBounds(map.getBounds().extend(estadoB.pad(0.5))); }
+  function enquadrar(b) { map.setMaxBounds(null); map.fitBounds(b || limitesRecorte(), Object.assign(areaLivre(), { animate: false })); limitarArraste(); }
+  function legendaCirculos() {
+    if (!ESC) return '';
+    const ref = [1, 10, 100, 1000, 10000].filter(v => v <= ESC.vmax).slice(-3), rmax = raio(ref[ref.length - 1]), base = 2 * rmax + 6;
+    let corpo = '', yAnt = -99;
+    ref.slice().reverse().forEach(v => {   // do maior para o menor; rótulos a pelo menos 14 px um do outro
+      const r = raio(v), topo = base - 2 * r, y = Math.max(topo + 4, yAnt + 14); yAnt = y;
+      corpo += '<circle cx="' + (rmax + 2) + '" cy="' + (base - r) + '" r="' + r + '" fill="' + css('--simbolo') + '" fill-opacity=".35" stroke="' + css('--ink-2') + '" stroke-width="1"/>' +
+        '<polyline points="' + (rmax + 2) + ',' + topo + ' ' + (2 * rmax + 10) + ',' + (y - 4) + '" fill="none" stroke="' + css('--ink-3') + '" stroke-dasharray="2 2"/>' +
+        '<text x="' + (2 * rmax + 14) + '" y="' + y + '">' + nf(v) + (v === 1 ? ' caso' : ' casos') + '</text>';
+    });
+    const H = Math.ceil(Math.max(base + 2, yAnt + 4)), W = Math.ceil(2 * rmax + 90);
+    return '<svg class="circ" width="' + W + '" height="' + H + '" role="img" aria-label="Círculos de referência: ' + ref.map(v => nf(v) + (v === 1 ? ' caso' : ' casos')).join(', ') + '">' + corpo + '</svg>';
   }
   function legenda() {
-    let h = '<b>' + C.NOME_IND[S.ind] + '</b><div style="color:var(--ink-3);margin:-4px 0 6px">' + C.TIPOS[S.tipo] + ' · ' + C.nomePer(S.per) + '</div>';
-    CL.rot.forEach((r, i) => { h += '<div class="row"><span class="sw" style="background:' + css(CL.cores[i]) + '"></span>' + r + '</div>'; });
-    if (S.ind === 'taxa') h += '<small>Média do estado: ' + nf(C.taxaEstado(S.tipo, S.per), 1) + ' por 100 mil/ano.' + (S.reg ? ' Média da ' + esc(nomeReg(S.reg)) + ': ' + nf(C.taxaRegiao(S.reg, S.tipo, S.per), 1) + '.' : '') + ' Cada classe reúne cerca de 1/5 dos municípios.</small>';
-    if (S.ind === 'oe') h += '<small>1 = o município notifica na mesma proporção que o estado.</small>';
-    if (S.ind === 'casos') h += '<small>Estado: ' + nf(C.casosEstado(S.tipo, S.per)) + ' casos.</small>';
+    let h = '<b>' + TITULO_LEG[S.ind] + '</b><div class="lsub">' + C.TIPOS[S.tipo] + ' · ' + C.nomePer(S.per) + ' · ' + (S.reg ? esc(nomeReg(S.reg)) : 'Paraíba') + '</div>';
+    const ps = C.F.map(f => f.properties).filter(noRecorte);
+    if (S.ind === 'casos') {
+      const soma = ps.reduce((s, p) => s + casosSel(p), 0), sem = ps.filter(p => !casosSel(p)).length;
+      h += legendaCirculos() + '<small>Área do círculo proporcional ao número de casos. ' + (S.reg ? 'Região' : 'Estado') + ': ' + nf(soma) + ' casos; ' + nf(sem) + (sem === 1 ? ' município' : ' municípios') + ' sem caso.</small>';
+    } else {
+      const n = CL.cores.map(() => 0); ps.forEach(p => n[classeDe(valor(p))]++);
+      const nmax = Math.max(1, ...n), ref = S.ind === 'taxa' ? C.taxaEstado(S.tipo, S.per) : 1, iRef = classeDe(ref);
+      CL.rot.forEach((r, i) => {
+        h += '<div class="row" data-n="' + n[i] + '"><span class="sw" style="background:' + css(CL.cores[i]) + '"></span><span class="rot">' + r + (i === iRef ? ' <span class="media">◆</span>' : '') +
+          '</span><span class="hist" style="width:' + Math.round(26 * n[i] / nmax) + 'px"></span><span class="cont">' + nf(n[i]) + '</span></div>';
+      });
+      const nInst = ps.filter(p => casosSel(p) < MIN_CASOS).length;
+      h += '<div class="row inst"><span class="sw hach"></span><span class="rot">Menos de 10 casos: valor instável</span><span class="cont">' + nf(nInst) + '</span></div>';
+      h += '<small>◆ ' + (S.ind === 'taxa' ? 'Média do estado: ' + nf(ref, 1) + ' por 100 mil/ano.' + (S.reg ? ' Média da ' + esc(nomeReg(S.reg)) + ': ' + nf(C.taxaRegiao(S.reg, S.tipo, S.per), 1) + '.' : '') : 'Classe do estado (1).') +
+        ' Números: municípios em cada classe' + (S.reg ? ', na região' : '') + '.</small>';
+      h += '<small>' + (S.ind === 'taxa' ? 'Classes por quintis: cada uma reúne cerca de 1/5 dos 223 municípios.' : 'Classes fixas em torno de 1 (igual ao estado).') + '</small>';
+    }
     $('leg').innerHTML = h;
   }
   function ranking() {
@@ -116,7 +242,7 @@ WS.mapa = (function () {
   function atualizar() {
     $('indhint').textContent = HINT[S.ind];
     $('mapatitulo').textContent = filtrosTexto();
-    estilizar(); legenda(); ranking(); tabelaMapa();
+    desenharSimbolos(); estilizar(); legenda(); ranking(); tabelaMapa();
     if (S.sel) ficha();
   }
 
@@ -216,6 +342,7 @@ WS.mapa = (function () {
   function ficha() {
     const p = C.porCod[S.sel], el = $('painel');
     el.innerHTML = htmlFicha(p); el.style.display = 'block';
+    $('mapwrap').classList.add('com-ficha');   // no celular, esconde legenda, escala e fonte enquanto a ficha está aberta
     el.querySelector('.x').addEventListener('click', () => { location.hash = '#mapa'; });
     el.querySelector('[data-acao=imprimir]').addEventListener('click', imprimirFicha);
     el.querySelector('[data-acao=link]').addEventListener('click', () => WS.util.copiar(location.href.split('#')[0] + '#mapa-' + p.cod, 'Link da ficha copiado'));
@@ -231,15 +358,13 @@ WS.mapa = (function () {
     if (!S.sel && document.activeElement && document.activeElement !== document.body && !$('painel').contains(document.activeElement)) voltarFoco = document.activeElement;
     S.sel = cod;
     if (S.tabela) alternarTabela(false);
-    const l = porCamada[cod], big = innerWidth > 860;
-    map.fitBounds(l.getBounds(), { maxZoom: 8.5, paddingTopLeft: [40, 60], paddingBottomRight: [big ? 400 : 40, big ? 40 : 320] });
-    estilizar(); ficha();
+    estilizar(); ficha(); enquadrar();
     if (focar) $('painel').querySelector('h2').setAttribute('tabindex', '-1'), $('painel').querySelector('h2').focus();
     return true;
   }
   function fecharFicha() {
     const estavaNaFicha = $('painel').contains(document.activeElement);
-    S.sel = null; $('painel').style.display = 'none'; $('painel').innerHTML = ''; estilizar();
+    S.sel = null; $('painel').style.display = 'none'; $('painel').innerHTML = ''; $('mapwrap').classList.remove('com-ficha'); estilizar();
     if (estavaNaFicha || voltarFoco) { const alvo = voltarFoco && document.contains(voltarFoco) && voltarFoco.getClientRects().length ? voltarFoco : $('mapatitulo'); alvo.focus({ preventScroll: true }); }
     voltarFoco = null;
   }
@@ -300,30 +425,163 @@ WS.mapa = (function () {
     $('cmpRes').innerHTML = h;
   }
 
+  // mesmos eventos para o polígono e para o círculo do município (destaque sempre no polígono)
+  function ligar(l, cod, poli) {
+    l.on('mousemove', e => {
+      if (ponteiro === 'touch') return;
+      const p = poli.feature.properties;
+      tip.style.display = 'block'; tip.textContent = p.nome + ' · ' + fmtValor(valor(p));
+      tip.style.left = (e.originalEvent.clientX + 14) + 'px'; tip.style.top = (e.originalEvent.clientY - 34) + 'px';
+      destacar(poli);
+    });
+    l.on('mouseout', () => { if (ponteiro !== 'touch') { esconderDica(); estilizar(); } });
+    // toque: o 1º toque mostra a etiqueta acima do município; o 2º no mesmo município abre a ficha
+    l.on('click', e => {
+      L.DomEvent.stopPropagation(e);
+      if (ponteiro === 'touch' && dicaCod !== cod) { estilizar(); destacar(poli); dicaPerto(poli, 'Toque de novo para abrir a ficha', 'toque'); dicaCod = cod; return; }
+      esconderDica(); location.hash = '#mapa-' + cod;
+    });
+  }
+
+  /* ---------- Baixar mapa (PNG): redesenha o mapa atual num canvas, com título, legenda e fonte ---------- */
+  function caminho(g, geom) {
+    const polis = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates;
+    g.beginPath();
+    polis.forEach(pl => pl.forEach(anel => anel.forEach((c, i) => { const pt = map.latLngToContainerPoint([c[1], c[0]]); if (i) g.lineTo(pt.x, pt.y); else g.moveTo(pt.x, pt.y); })));
+  }
+  function padraoCanvas(g, cor) {
+    const t = document.createElement('canvas'); t.width = t.height = 8;
+    const k = t.getContext('2d'); k.fillStyle = cor; k.fillRect(0, 0, 8, 8);
+    k.strokeStyle = linhaHachura(cor); k.lineWidth = 1;
+    [[0, 8, 8, 0], [-4, 4, 4, -4], [4, 12, 12, 4]].forEach(([a, b, c, d]) => { k.beginPath(); k.moveTo(a, b); k.lineTo(c, d); k.stroke(); });
+    return g.createPattern(t, 'repeat');
+  }
+  function quebrar(g, txt, x, y, larg, alt) {
+    let linha = '';
+    txt.split(' ').forEach(p => { const t = linha ? linha + ' ' + p : p; if (g.measureText(t).width > larg && linha) { g.fillText(linha, x, y); y += alt; linha = p; } else linha = t; });
+    if (linha) g.fillText(linha, x, y);
+    return y + alt;
+  }
+  async function baixarPNG() {
+    try {
+      if (document.fonts && document.fonts.ready) await document.fonts.ready;
+      const sz = map.getSize(), LEG = 300, TOPO = 78, BASE = 50, E = 2, W = sz.x + LEG, H = TOPO + Math.max(sz.y, 420) + BASE;
+      const cv = document.createElement('canvas'); cv.width = W * E; cv.height = H * E;
+      const g = cv.getContext('2d'); g.scale(E, E);
+      const sans = '"IBM Plex Sans", system-ui, sans-serif', serif = '"IBM Plex Serif", Georgia, serif';
+      g.fillStyle = css('--bg'); g.fillRect(0, 0, W, H);
+      g.fillStyle = css('--ink'); g.font = '600 21px ' + serif; g.fillText(TITULO_LEG[S.ind], 20, 34);
+      g.fillStyle = css('--ink-2'); g.font = '14px ' + sans; g.fillText(C.TIPOS[S.tipo] + ' · ' + C.nomePer(S.per) + ' · ' + (S.reg ? nomeReg(S.reg) : 'Paraíba'), 20, 58);
+      // mapa
+      g.save(); g.translate(0, TOPO); g.beginPath(); g.rect(0, 0, sz.x, sz.y); g.clip();
+      g.fillStyle = css('--surface-2'); g.fillRect(0, 0, sz.x, sz.y);
+      const pad = {};
+      camada.eachLayer(l => {
+        const o = l.options, m = /url\(#hach-(\d)\)/.exec(o.fillColor || '');
+        caminho(g, l.feature.geometry);
+        g.globalAlpha = o.fillOpacity; g.fillStyle = m ? (pad[m[1]] = pad[m[1]] || padraoCanvas(g, css(CL.cores[+m[1]]))) : o.fillColor; g.fill('evenodd');
+        g.globalAlpha = 1; g.strokeStyle = o.color; g.lineWidth = o.weight; g.stroke();
+      });
+      [camRegioes, camEstado].forEach(cam => cam && cam.eachLayer(l => { const o = l.options; if (!o.opacity) return; caminho(g, l.feature.geometry); g.globalAlpha = o.opacity; g.strokeStyle = o.color; g.lineWidth = o.weight; g.stroke(); g.globalAlpha = 1; }));
+      grupoSimb.eachLayer(c => {
+        const pt = map.latLngToContainerPoint(c.getLatLng()), o = c.options;
+        g.beginPath(); g.arc(pt.x, pt.y, c.getRadius(), 0, 2 * Math.PI);
+        g.globalAlpha = o.fillOpacity; g.fillStyle = o.fillColor; g.fill(); g.globalAlpha = o.opacity; g.strokeStyle = o.color; g.lineWidth = o.weight; g.stroke(); g.globalAlpha = 1;
+      });
+      g.font = '600 12px ' + sans; g.lineJoin = 'round';
+      rotulos.forEach(mk => {
+        if (!mk.getElement() || mk.getElement().style.visibility === 'hidden') return;
+        const pt = map.latLngToContainerPoint(mk.getLatLng()), nome = mk.options.title, esq = mk.getElement().classList.contains('esq'), tx = esq ? pt.x - 6 - g.measureText(nome).width : pt.x + 6;
+        g.fillStyle = css('--ink'); g.beginPath(); g.arc(pt.x, pt.y, 2.5, 0, 2 * Math.PI); g.fill();
+        g.strokeStyle = css('--bg'); g.lineWidth = 3; g.strokeText(nome, tx, pt.y - 4); g.fillText(nome, tx, pt.y - 4);
+      });
+      // barra de escala
+      const y0 = sz.y / 2, m100 = map.distance(map.containerPointToLatLng([0, y0]), map.containerPointToLatLng([100, y0]));
+      const km = [1, 2, 5, 10, 20, 50, 100, 200].filter(k => k * 1000 / m100 * 100 <= 140).pop() || 1, px = km * 1000 / m100 * 100;
+      g.fillStyle = css('--ink-2'); g.fillRect(16, sz.y - 22, px, 2); g.fillRect(16, sz.y - 28, 1.5, 8); g.fillRect(16 + px - 1.5, sz.y - 28, 1.5, 8);
+      g.font = '12px ' + sans; g.fillText(km + ' km', 20 + px, sz.y - 18);
+      g.restore();
+      // legenda
+      let x = sz.x + 20, y = TOPO + 24;
+      g.fillStyle = css('--ink'); g.font = '600 14px ' + sans; y = quebrar(g, TITULO_LEG[S.ind], x, y, LEG - 36, 18) + 4;
+      g.font = '13px ' + sans;
+      const ps = C.F.map(f => f.properties).filter(noRecorte);
+      if (S.ind === 'casos' && ESC) {
+        const ref = [1, 10, 100, 1000, 10000].filter(v => v <= ESC.vmax).slice(-3);
+        ref.slice().reverse().forEach(v => {
+          const r = raio(v); y += r + 4;
+          g.beginPath(); g.arc(x + R_MAX, y, r, 0, 2 * Math.PI); g.globalAlpha = 0.4; g.fillStyle = css('--simbolo'); g.fill(); g.globalAlpha = 1;
+          g.strokeStyle = css('--ink-2'); g.lineWidth = 1; g.stroke(); g.fillStyle = css('--ink'); g.fillText(nf(v) + (v === 1 ? ' caso' : ' casos'), x + 2 * R_MAX + 12, y + 4); y += r + 6;
+        });
+        g.fillStyle = css('--ink-2'); g.font = '12px ' + sans; y = quebrar(g, 'Área do círculo proporcional ao número de casos.', x, y + 12, LEG - 36, 16);
+      } else {
+        const n = CL.cores.map(() => 0); ps.forEach(p => n[classeDe(valor(p))]++);
+        CL.rot.forEach((r, i) => { g.fillStyle = css(CL.cores[i]); g.fillRect(x, y - 10, 18, 12); g.fillStyle = css('--ink'); g.fillText(r + ' (' + nf(n[i]) + ')', x + 26, y); y += 20; });
+        g.fillStyle = padraoCanvas(g, css('--surface-2')); g.fillRect(x, y - 10, 18, 12); g.fillStyle = css('--ink');
+        g.fillText('Menos de 10 casos: valor instável (' + nf(ps.filter(p => casosSel(p) < MIN_CASOS).length) + ')', x + 26, y); y += 24;
+        g.fillStyle = css('--ink-2'); g.font = '12px ' + sans;
+        y = quebrar(g, (S.ind === 'taxa' ? 'Média do estado: ' + nf(C.taxaEstado(S.tipo, S.per), 1) + ' por 100 mil/ano. Classes por quintis.' : 'Classes fixas em torno de 1 (igual ao estado).') + ' Entre parênteses: municípios em cada classe.', x, y, LEG - 36, 16);
+      }
+      // fonte
+      g.fillStyle = css('--ink-3'); g.font = '12px ' + sans;
+      g.fillText('Fonte: SINAN/TABNET (Ministério da Saúde), notificações de 2019 a 2024; IBGE, Censo 2022 e malha municipal. Gerado em ' + new Date().toLocaleDateString('pt-BR') + ' · github.com/AnaCAmim/TCC', 20, H - 20);
+      const nome = 'mapa_' + S.ind + '_' + S.tipo + '_' + (S.per === 'all' ? '2019-2024' : S.per) + (S.reg ? '_regiao' + S.reg : '') + '.png';
+      await new Promise((ok, erro) => cv.toBlob(b => {
+        if (!b) return erro(new Error('sem imagem'));
+        const url = URL.createObjectURL(b), a = document.createElement('a'); a.href = url; a.download = nome;
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); ok();
+      }, 'image/png'));
+    } catch (e) {
+      WS.util.toast('Não foi possível gerar a imagem neste modo de abertura. Abra o painel pelo link publicado.');
+    }
+  }
+
+  // contornos (estado e regiões de saúde) e rótulos das cidades-polo: só referência; entram logo depois do primeiro desenho
+  function referencias() {
+    if (C.CONTORNOS) {
+      camRegioes = L.geoJSON({ type: 'FeatureCollection', features: C.CONTORNOS.regioes.map(r => ({ type: 'Feature', properties: { cod: r.cod }, geometry: r.geom })) },
+        { pane: 'regioes', renderer: L.svg({ pane: 'regioes' }), interactive: false, style: estiloRegiao }).addTo(map);
+      camEstado = L.geoJSON({ type: 'Feature', properties: {}, geometry: C.CONTORNOS.estado }, { pane: 'estado', renderer: L.svg({ pane: 'estado' }), interactive: false,
+        style: () => ({ fill: false, color: css('--ink'), weight: 2.4, opacity: 0.9 }) }).addTo(map);
+    }
+    rotulos = POLOS.map(n => C.F.find(f => f.properties.nome === n)).filter(Boolean).map(f => L.marker(centro[f.properties.cod], {
+      pane: 'rotulos', interactive: false, keyboard: false, title: f.properties.nome,
+      icon: L.divIcon({ className: 'rotulo', html: '<span>' + esc(f.properties.nome) + '</span>', iconSize: null, iconAnchor: [0, 0] }) }).addTo(map));
+    rotulos.forEach(m => { const el = m.getElement(); el.setAttribute('aria-hidden', 'true'); el.removeAttribute('title'); el.removeAttribute('tabindex'); });
+    estilizar(); arrumarRotulos();
+  }
+
   /* ---------- início ---------- */
   function iniciar(calc) {
     C = calc;
-    map = L.map('map', { zoomSnap: 0.25, attributionControl: false, keyboard: true }).setView([-7.12, -36.8], 7.5);
+    map = L.map('map', { zoomSnap: 0.25, attributionControl: false, keyboard: true, maxBoundsViscosity: 0.9 }).setView([-7.12, -36.8], 7.5);
     tip = $('tip');
     const alfabetica = [...C.F].sort((a, b) => a.properties.nome.localeCompare(b.properties.nome, 'pt'));
     ORDEM = alfabetica.map(f => f.properties.cod);
     camada = L.geoJSON({ type: 'FeatureCollection', features: alfabetica }, { style: () => ({}), onEachFeature: (f, l) => {
-      const cod = f.properties.cod;
-      porCamada[cod] = l;
-      l.on('mousemove', e => {
-        if (ponteiro === 'touch') return;
-        tip.style.display = 'block'; tip.textContent = f.properties.nome + ' · ' + fmtValor(valor(f.properties));
-        tip.style.left = (e.originalEvent.clientX + 14) + 'px'; tip.style.top = (e.originalEvent.clientY - 34) + 'px';
-        destacar(l);
-      });
-      l.on('mouseout', () => { if (ponteiro !== 'touch') { esconderDica(); estilizar(); } });
-      // toque: o 1º toque mostra a etiqueta acima do município; o 2º no mesmo município abre a ficha
-      l.on('click', e => {
-        L.DomEvent.stopPropagation(e);
-        if (ponteiro === 'touch' && dicaCod !== cod) { estilizar(); destacar(l); dicaPerto(l, 'Toque de novo para abrir a ficha', 'toque'); dicaCod = cod; return; }
-        esconderDica(); location.hash = '#mapa-' + cod;
-      });
-    } }).addTo(map);
+      porCamada[f.properties.cod] = l;
+      centro[f.properties.cod] = centroide(f.geometry);
+      ligar(l, f.properties.cod, l);
+    } });
+    // vista final calculada ANTES de pôr as camadas no mapa: cada geometria é projetada uma vez só (abertura mais leve)
+    estadoB = camada.getBounds();
+    CL = classes(); legenda();
+    map.fitBounds(estadoB, Object.assign(areaLivre(), { animate: false }));
+    zoomInicial = map.getZoom();
+    map.setMinZoom(Math.max(4, zoomInicial - 1.5)); map.setMaxZoom(11);
+    camada.addTo(map);
+    // referências: regiões de saúde, contorno do estado, círculos, rótulos das cidades-polo
+    [['regioes', 410], ['estado', 415], ['simbolos', 420], ['rotulos', 640]].forEach(([n, z]) => { const p = map.createPane(n); p.style.zIndex = z; if (n !== 'simbolos') p.style.pointerEvents = 'none'; });
+    rSimb = L.svg({ pane: 'simbolos' }); grupoSimb = L.layerGroup().addTo(map);
+    const Fonte = L.Control.extend({ options: { position: 'bottomleft' }, onAdd: () => { const d = L.DomUtil.create('div', 'fonte-mapa'); d.textContent = 'Fonte: SINAN/TABNET, 2019 a 2024; IBGE, Censo 2022 e malha municipal'; return d; } });
+    new Fonte().addTo(map);
+    L.control.scale({ position: 'bottomleft', imperial: false, maxWidth: 110 }).addTo(map);
+    const Estado = L.Control.extend({ options: { position: 'topleft' }, onAdd: () => {
+      const d = L.DomUtil.create('div', 'leaflet-bar ctl-estado'), b = L.DomUtil.create('button', '', d);
+      b.type = 'button'; b.id = 'verEstado'; b.textContent = 'Ver estado inteiro';
+      L.DomEvent.disableClickPropagation(d); b.addEventListener('click', () => enquadrar(estadoB));
+      return d; } });
+    new Estado().addTo(map);
     // teclado: Tab percorre os municípios (ordem alfabética), a etiqueta aparece acima, Enter abre a ficha
     camada.eachLayer(l => {
       const el = l.getElement(), cod = l.feature.properties.cod;
@@ -341,7 +599,8 @@ WS.mapa = (function () {
     document.addEventListener('keydown', () => { ponteiro = 'teclado'; }, true);
     $('map').addEventListener('scroll', e => { e.target.scrollTop = 0; e.target.scrollLeft = 0; });   // o foco num polígono não pode rolar o mapa
     map.on('click movestart zoomstart', () => { if (dicaCod) { esconderDica(); estilizar(); } });
-    map.fitBounds(camada.getBounds(), { padding: [10, 10] });
+    limitarArraste();   // o arraste não sai da Paraíba (com margem)
+    map.on('zoomend moveend resize', arrumarRotulos);
 
     $('per').innerHTML = '<option value="all">2019 a 2024 (soma)</option>' + C.ANOS.map(a => '<option value="' + a + '">' + a + '</option>').join('');
     ['ind', 'tipo', 'per'].forEach(id => $(id).addEventListener('change', e => { S[id] = e.target.value; atualizar(); }));
@@ -350,6 +609,8 @@ WS.mapa = (function () {
     $('reg').innerHTML = '<option value="">Todo o estado</option>' + Object.keys(porMacro).sort().map(m => '<optgroup label="' + esc(m) + '">' +
       porMacro[m].map(c => '<option value="' + c + '">' + esc(C.REG[c].nome) + ' (' + C.munsRegiao(c).length + ' municípios)</option>').join('') + '</optgroup>').join('');
     $('reg').addEventListener('change', e => { S.reg = e.target.value; atualizar(); enquadrar(); });
+    $('verRegioes').addEventListener('change', e => { verRegioes = e.target.checked; estilizar(); });
+    $('baixarPng').addEventListener('click', baixarPNG);
     $('lista').innerHTML = C.F.map(f => '<option value="' + esc(f.properties.nome) + '">').join('');
     const buscar = txt => {
       const c = acharCod(txt);
@@ -370,11 +631,18 @@ WS.mapa = (function () {
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && tip.style.display === 'block') esconderDica(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && !e.defaultPrevented && S.sel && !$('cmp').open && !e.target.closest('input,select')) { e.preventDefault(); location.hash = '#mapa'; } });
     atualizar();
+    setTimeout(referencias, 0);   // divide o trabalho da abertura em duas tarefas curtas
     // usado pelo tour: muda um filtro como se a pessoa tivesse escolhido na lista
     const definir = (id, v) => { $(id).value = v; $(id).dispatchEvent(new Event('change')); };
     const verFaixaTaxa = () => { const b = $('painel').querySelector('[data-fx=taxa]'); if (!b) return; b.closest('details').open = true; b.click(); b.closest('details').scrollIntoView({ block: 'start' }); };
     return { S, mostrarFicha, fecharFicha, abrirComparar, imprimirFicha, alternarTabela, redesenhar: () => { estilizar(); legenda(); }, invalidar: () => map.invalidateSize(), definir, verFaixaTaxa,
-      limitesMapa: () => map.getBounds() };
+      limitesMapa: () => map.getBounds(),
+      // ganchos para o teste: escala dos símbolos, hachura e enquadramento
+      simbolos: () => ({ escala: ESC, raios: Object.fromEntries(grupoSimb.getLayers().map(c => [c.feature.properties.cod, c.getRadius()])),
+        ordem: grupoSimb.getLayers().map(c => c.feature.properties.cod) }),
+      enquadramento: () => { const ne = map.latLngToContainerPoint(estadoB.getNorthEast()), sw = map.latLngToContainerPoint(estadoB.getSouthWest()), sz = map.getSize();
+        return { x0: sw.x, x1: ne.x, y0: ne.y, y1: sw.y, w: sz.x, h: sz.y }; },
+      baixarPNG };
   }
   return { iniciar };
 })();

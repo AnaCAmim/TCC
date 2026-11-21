@@ -84,7 +84,7 @@ window.WS = window.WS || {};
     rota();
     // Ganchos para o teste automático (testes/testar_front.py compara estes cálculos com a view SQL)
     window.PAINEL = { F: C.F, ANOS: C.ANOS, casos: C.casos, taxa: C.taxa, taxaEstado: C.taxaEstado, esperado: C.esperado, oe: C.oe,
-      REG: C.REG, taxaRegiao: C.taxaRegiao, limitesMapa: mapa.limitesMapa, FX: C.FX, taxaFaixa: C.taxaFaixa, taxaFaixaEstado: C.taxaFaixaEstado, localEstado: C.localEstado, pctLocal: C.pctLocal,
+      REG: C.REG, taxaRegiao: C.taxaRegiao, limitesMapa: mapa.limitesMapa, simbolos: mapa.simbolos, enquadramento: mapa.enquadramento, FX: C.FX, taxaFaixa: C.taxaFaixa, taxaFaixaEstado: C.taxaFaixaEstado, localEstado: C.localEstado, pctLocal: C.pctLocal,
       abrir: v => { location.hash = '#' + v; }, selecionar: cod => { location.hash = '#mapa-' + cod; },
       estado: mapa.S, imprimirFicha: mapa.imprimirFicha, abrirComparar: mapa.abrirComparar, origem };
   });

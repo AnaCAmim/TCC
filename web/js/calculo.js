@@ -40,7 +40,8 @@ WS.calculo = (function () {
     const localEstado = [0, 1, 2].map(k => F.reduce((s, f) => s + f.properties.local[k], 0));
     const pctLocal = (vals, k) => { const t = vals[0] + vals[1] + vals[2]; return t ? 100 * vals[k] / t : null; };
     const leituraOE = o => (!isFinite(o) ? '' : o < 0.8 ? 'Notifica menos que a média do estado' : o <= 1.25 ? 'Notifica perto da média do estado' : 'Notifica mais que a média do estado');
-    return { F, ANOS, FX, POP, porCod, casos, anosPer, casosEstado, taxa, taxaEstado, esperado, oe, valor, faixaEstado, popFaixaEstado, taxaFaixa, taxaFaixaEstado, N_FX_TAXA, nomePer, rotFx, leituraOE, LOCAIS, localEstado, pctLocal, REG, munsRegiao, casosRegiao, popRegiao, taxaRegiao, TIPOS, NOME_IND };
+    const CONTORNOS = DADOS.contornos || null;   // estado e regiões de saúde, só para desenho do mapa
+    return { CONTORNOS, F, ANOS, FX, POP, porCod, casos, anosPer, casosEstado, taxa, taxaEstado, esperado, oe, valor, faixaEstado, popFaixaEstado, taxaFaixa, taxaFaixaEstado, N_FX_TAXA, nomePer, rotFx, leituraOE, LOCAIS, localEstado, pctLocal, REG, munsRegiao, casosRegiao, popRegiao, taxaRegiao, TIPOS, NOME_IND };
   }
 
   // Tela "Como calcular": cada indicador com o que é, fórmula, exemplo com números reais, uso e cuidado
