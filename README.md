@@ -91,6 +91,10 @@ Views: `vw_indicador_municipio_ano_tipo` (município × período × tipo), `vw_i
 |---|---|---|
 | ![Tela Análise](capturas/1366_claro_analise.png) | ![Tela Como calcular](capturas/1366_claro_como_calcular.png) | ![Tema escuro](capturas/1366_escuro_mapa_ficha.png) |
 
+| Taxa (ColorBrewer YlOrRd, classes fixas) | Observado ÷ esperado (PuOr) | Casos (símbolos proporcionais) |
+|---|---|---|
+| ![Mapa da taxa](capturas/1366_claro_mapa_taxa.png) | ![Mapa do observado ÷ esperado no tema escuro](capturas/1366_escuro_mapa_oe.png) | ![Mapa de casos](capturas/1366_claro_mapa_casos.png) |
+
 A ficha impressa (botão **Imprimir ficha**) sai numa folha limpa, com fonte e data; os testes geram um exemplo em PDF em `capturas/` (não publicado).
 
 ## Qualidade

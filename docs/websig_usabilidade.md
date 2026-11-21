@@ -167,3 +167,52 @@ Conferência:
 - Testes novos: área dos círculos de João Pessoa, Campina Grande e Sousa proporcional aos casos (r² ÷ casos constante; maiores atrás); hachura exatamente nos 95 municípios com menos de 10 casos (igual à view) e contagem por classe somando 223; enquadramento com a ficha aberta no computador e no celular; PNG gerado nos dois modos de abertura; rótulos sem sobreposição; regiões ligam e desligam; limite da região escolhida destacado; contraste da hachura ≥ 3:1 nos dois temas.
 - Testes: dados 67, painel 138 (Firefox e WebKit 137), usabilidade 32, 0 falhas.
 - Lighthouse local (com compressão): celular 97 e 98 de desempenho (antes 99) e 100 de acessibilidade; computador 100 e 100. A primeira versão ficou em 95: o mapa era desenhado e logo reenquadrado na abertura. Calcular a vista antes de pôr as camadas e adiar contornos e rótulos para depois do primeiro desenho recuperou quase toda a diferença.
+
+## Revisão visual a partir da auditoria do site publicado (ramo `bases-contexto`, 20/11/2026)
+
+Dados, SQL, fórmulas, indicadores e funções não mudaram. O front anterior está em `backup/etapa6/`, fora do repositório (o acabamento antigo virou `backup/etapa6_acabamento/`).
+
+### Princípios adotados
+
+1. **Escala sequencial: claro = baixo, escuro = alto, sempre**, também no tema escuro. O leitor tende a ler a cor mais escura como "mais" (*dark-is-more bias*); inverter a escala no tema escuro faria o mesmo município parecer alto num tema e baixo no outro.
+2. **Passos de claridade uniformes** entre classes vizinhas, para que a distância visual corresponda à distância entre classes.
+3. **Escala divergente: extremos mais escuros, centro claro.** O centro é o valor de referência (O/E = 1, igual ao estado).
+4. **Cor só onde carrega informação.** Gráficos em cinza neutro; uma única série ou barra destacada na cor institucional; linha de referência cinza e tracejada.
+
+Referências:
+- BREWER, C. A.; HARROWER, M. *ColorBrewer 2.0: color advice for cartography*. Penn State University. Disponível em: https://colorbrewer2.org. Paletas YlOrRd (sequencial) e PuOr (divergente), 5 classes, ambas marcadas como seguras para daltonismo.
+- HARROWER, M.; BREWER, C. A. ColorBrewer.org: an online tool for selecting colour schemes for maps. *The Cartographic Journal*, v. 40, n. 1, p. 27–37, 2003.
+- DATAWRAPPER ACADEMY. *Which color scale to use when visualizing data* e *What to consider when choosing colors for data visualization*. Disponível em: https://academy.datawrapper.de.
+- SCHIEWE, J. Empirical studies on the visual perception of choropleth maps: the dark-is-more bias. *KN – Journal of Cartography and Geographic Information*, v. 74, p. 171–180, 2024.
+
+### Itens (antes → depois)
+
+| # | Elemento | Antes | Depois |
+|---|---|---|---|
+| R1 | Mapa e legenda no tema escuro | Na versão publicada, o fundo do mapa e da legenda ficavam claros no tema escuro | Fundo do mapa e da legenda seguem o tema (no ramo já seguiam; agora um teste mede a luminância do fundo nos dois temas, em 1366 e no celular). As paletas são idênticas nos dois temas: claro continua sendo baixo |
+| R2 | Cores da taxa | Rampa azul própria (#b7d3f6 a #104281), invertida no tema escuro: lá o azul mais escuro era o valor mais baixo | ColorBrewer YlOrRd 5: #ffffb2, #fecc5c, #fd8d3c, #f03b20, #bd0026, igual nos dois temas |
+| R3 | Cores do observado ÷ esperado | Divergente azul–vermelho própria (#1c5cab a #c93b3a), centro bege (#d4cfc4) que no tema escuro virava cinza-escuro (#4a4944), mais escuro que os extremos | ColorBrewer PuOr 5: #5e3c99 (menos de 0,5), #b2abd2 (0,5 a 0,8), #f7f7f7 (0,8 a 1,25), #fdb863 (1,25 a 2), #e66101 (2 ou mais). O limite municipal continua visível sobre a classe central (#f7f7f7) |
+| R4 | Classes da taxa | Quintis recalculados a cada combinação de tipo e período: a mesma cor mudava de significado ao trocar o filtro | Classes fixas por tipo, calculadas uma vez a partir das taxas anuais 2019–2024 de todos os municípios (quintis das taxas positivas, arredondados): total 40/60/90/140; física 30/50/70/120; psicológica 20/30/50/80; sexual 15/25/40/60. Linha na legenda: "Classes fixas: quintis das taxas anuais dos municípios de 2019 a 2024 neste tipo, arredondados. Valem para qualquer ano ou período." |
+| R5 | Legenda com a ficha aberta | No canto inferior direito: com a ficha aberta (também à direita), ficava coberta por ela | Sempre visível no computador, no canto inferior esquerdo, também com a ficha aberta (o enquadramento desconta a largura da legenda e da ficha). No celular, recolhível pelo botão "Legenda" (aria-expanded); com a ficha aberta, continua escondida para o mapa caber na tela |
+| R6 | Cores dos gráficos | Quatro cores genéricas (uma por tipo), sem hierarquia | Cinza neutro; uma série destacada em azul-petróleo (Sexual na série anual e no gráfico de tipos; a faixa com mais casos e a de maior taxa nos gráficos de faixa etária); linha do estado cinza e tracejada; nenhuma das 4 cores antigas |
+| R7 | Hachura do valor instável | Linha a cada 8 px, sempre ligada | Hachura sutil (1 px a cada 10 px, opacidade mínima que dá contraste ≥ 3:1 com a cor de fundo) e opção "Destacar municípios com poucos casos", ligada por padrão; o item da legenda some quando desligada |
+| R8 | Mini-histograma da legenda | Em todas as classes, inclusive nos quintis (onde as barras eram quase iguais por construção) | Só nas classes fixas do observado ÷ esperado; na taxa, só a contagem de municípios |
+| R9 | Mapa de casos | Pontos das cidades de referência sobre os círculos; círculos na cor institucional | Sem os pontos (rótulos só com halo); círculos laranja-escuro (#d95f02) semitransparentes com contorno branco sobre base cinza clara |
+| R10 | Limites das regiões | Mais finos e mais claros que o necessário para se distinguir dos municipais | Regiões em 1,8 px, cor quase preta (#34322e); municípios em 0,6 px, cinza translúcido. Hierarquia: estado > região > município |
+| R11 | Botões do cabeçalho e do mapa | "Ver estado inteiro" como botão de texto grande; "Sobre o painel", "Tour" e "Copiar link" como botões com borda | "Ver estado inteiro" é um botão de ícone de 44 px junto ao zoom, com aria-label e title; os três do cabeçalho viraram links de texto sem borda |
+| R12 | Rótulos da legenda | Rótulos longos repetindo a unidade em cada classe | Rótulos curtos ("menos de 40", "40 a 60", "2 ou mais"); o significado fica no título ("Observado ÷ esperado (1 = igual ao estado; abaixo de 1, notifica menos)") |
+| R13 | Foco ao abrir a ficha | Foco no título com moldura visível | Foco programático no título (leitor de tela anuncia o município) sem moldura; o foco por Tab nos controles continua com contorno |
+| R14 | Números nos gráficos e na tabela | Todos os valores em negrito; colunas numéricas largas | Valores em peso normal, só o número comentado em negrito; na tabela da Análise, colunas numéricas compactas e alinhadas à direita (largura máxima 820 px) |
+| R15 | Daltonismo e escala de cinza | ΔE mínimo medido, sem conferir a ordem das classes | Conferidas a ordem de claridade (L*) e a diferença mínima entre vizinhas em visão normal, protanopia, deuteranopia, tritanopia e escala de cinza (números abaixo) |
+
+### Conferência
+
+- **Ordem preservada em todas as simulações e em cinza:** na sequencial, L* cai a cada classe; na divergente, forma um V com o centro mais claro.
+- L* sequencial (normal e cinza): 98,4 · 84,5 · 69,7 · 53,8 · 39,5 (menor passo 13,9). Protanopia: menor passo 14,1; deuteranopia 11,5; tritanopia 9,9 (97,2 · 82,0 · 66,1 · 53,5 · 43,6).
+- L* divergente (normal e cinza): 33,8 · 71,7 · 97,2 · 79,7 · 57,4 (menor passo 17,5; protanopia 21,1; deuteranopia 15,4; tritanopia 20,0).
+- ΔE mínimo entre classes vizinhas (iguais nos dois temas): sequencial 24,5 (normal), 19,4 (protanopia), 13,1 (deuteranopia), 16,1 (tritanopia); divergente 33,3 / 26,5 / 23,6 / 25,6.
+- Hachura: linha escura (#262522) com opacidade 0,5 a 0,75 nas classes claras; branca com 0,5 a 0,65 sobre #bd0026 e #5e3c99. Contraste linha × cor de 3,01 a 3,32:1 (mínimo exigido 3:1), conferido nos padrões do próprio mapa.
+- Contagens da legenda (todos os tipos, 2019–2024): taxa 74 / 50 / 44 / 35 / 20, 95 com hachura; observado ÷ esperado 76 / 61 / 42 / 32 / 12.
+- Testes: dados 67, painel 157 (Firefox e WebKit 156), usabilidade 34, 0 falhas. Novos: paletas e classes fixas (iguais em "todos os anos" e em 2024; diferentes por tipo); histograma só no O/E; legenda visível sem cobrir a ficha; foco no título sem moldura; fundo do mapa e da legenda conforme o tema; legenda recolhível no celular; gráficos com uma série destacada; rótulos dentro do mapa; ordem de claridade nas simulações.
+- Lighthouse local (com compressão): celular 98 de desempenho no relatório guardado (quatro rodadas: 93, 97, 98 e 97; mediana 97,5; etapa anterior 97 e 98), computador 100; acessibilidade 100 nos dois.
+- Capturas novas em `capturas/`: `{1366,celular}_{claro,escuro}_mapa_{taxa,oe,casos}.png`, além de `*_mapa_ficha.png` (ficha aberta com a legenda) e `*_analise.png`.
