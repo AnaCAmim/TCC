@@ -61,6 +61,7 @@
       <label class="ctl" for="reg">Região de saúde</label>
       <select id="reg" aria-describedby="reghint"></select>
       <p class="hint" id="reghint">Recorta mapa, ranking e tabela. As cores mantêm a escala do estado.</p>
+      <label class="chk"><input type="checkbox" id="verRegioes" checked> Mostrar limites das regiões de saúde</label>
       <label class="ctl" for="busca">Buscar município</label>
       <input type="search" id="busca" list="lista" placeholder="Ex.: Sousa (sem acento também serve)" autocomplete="off">
       <datalist id="lista"></datalist>
@@ -68,6 +69,7 @@
       <div class="btnrow" style="margin-top:0">
         <button class="btn peq" id="verTabela" type="button" aria-pressed="false">Ver como tabela</button>
         <button class="btn peq" id="abrirComparar" type="button">Comparar municípios</button>
+        <button class="btn peq" id="baixarPng" type="button">Baixar mapa (PNG)</button>
       </div>
       </div>
       <div class="rkbox">
