@@ -51,9 +51,38 @@ JOIN municipio m    ON m.cod_ibge6 = c.cod_ibge6
 JOIN populacao p    ON p.cod_ibge7 = m.cod_ibge7
 GROUP BY r.cod_regiao, r.regiao, r.macrorregiao, c.periodo, c.ano, c.n_anos, c.tipo;
 
+-- Faixa etária × município (acumulado 2019-2024): casos, mulheres da faixa e taxa por 100 mil mulheres por ano
+--   taxa da faixa = casos da faixa ÷ mulheres da faixa × 100.000 ÷ 6. A faixa "Ignorada" (11) não tem mulheres: fica sem taxa.
+CREATE OR REPLACE VIEW vw_faixa_municipio AS
+SELECT m.cod_ibge7, m.nome, f.faixa_id, f.faixa, f.casos, pf.mulheres,
+       CASE WHEN pf.mulheres > 0 THEN f.casos::numeric / pf.mulheres * 100000 / 6 END AS taxa_100mil_ano
+FROM faixa_etaria f
+JOIN municipio m ON m.cod_ibge6 = f.cod_ibge6
+LEFT JOIN populacao_faixa pf ON pf.cod_ibge7 = m.cod_ibge7 AND pf.faixa_id = f.faixa_id;
+
+-- Faixa etária no estado (referência da ficha e da Análise)
+CREATE OR REPLACE VIEW vw_faixa_estado AS
+SELECT faixa_id, faixa, SUM(casos)::integer AS casos, SUM(mulheres)::integer AS mulheres,
+       CASE WHEN SUM(mulheres) > 0 THEN SUM(casos)::numeric / SUM(mulheres) * 100000 / 6 END AS taxa_100mil_ano
+FROM vw_faixa_municipio
+GROUP BY faixa_id, faixa;
+
+-- Local de notificação (contexto): % = casos atendidos na categoria ÷ casos do município × 100
+CREATE OR REPLACE VIEW vw_local_atendimento AS
+SELECT m.cod_ibge7, m.nome, l.categoria, l.local, l.casos,
+       SUM(l.casos) OVER (PARTITION BY l.cod_ibge6)::integer AS total,
+       CASE WHEN SUM(l.casos) OVER (PARTITION BY l.cod_ibge6) > 0
+            THEN l.casos::numeric * 100 / SUM(l.casos) OVER (PARTITION BY l.cod_ibge6) END AS pct
+FROM notificacao_local l JOIN municipio m ON m.cod_ibge6 = l.cod_ibge6;
+
+CREATE OR REPLACE VIEW vw_local_estado AS
+SELECT categoria, local, SUM(casos)::integer AS casos, SUM(SUM(casos)) OVER ()::integer AS total,
+       SUM(casos)::numeric * 100 / SUM(SUM(casos)) OVER () AS pct
+FROM notificacao_local GROUP BY categoria, local;
+
 -- Conferência das views
 DO $$
-DECLARE c bigint; n int;
+DECLARE c bigint; n int; p bigint;
 BEGIN
   SELECT casos INTO c FROM vw_indicador_estado WHERE periodo = '2019-2024' AND tipo = 'total';
   IF c <> 10344 THEN RAISE EXCEPTION 'vw_indicador_estado: % casos (esperado 10344)', c; END IF;
@@ -61,5 +90,7 @@ BEGIN
   IF n <> 223 THEN RAISE EXCEPTION 'vw_indicador_municipio_ano_tipo: % municipios (esperado 223)', n; END IF;
   SELECT sum(casos) INTO c FROM vw_indicador_regiao WHERE periodo = '2019-2024' AND tipo = 'total';
   IF c <> 10344 THEN RAISE EXCEPTION 'vw_indicador_regiao: % casos (esperado 10344)', c; END IF;
+  SELECT sum(casos), sum(mulheres) INTO c, p FROM vw_faixa_estado;
+  IF c <> 10344 OR p <> 2055832 THEN RAISE EXCEPTION 'vw_faixa_estado: % casos, % mulheres (esperado 10344 e 2055832)', c, p; END IF;
   RAISE NOTICE 'Views OK: % casos, % municipios', c, n;
 END $$;

@@ -65,6 +65,22 @@ threading.Thread(target=srv.serve_forever, daemon=True).start()
 INICIO = f"http://127.0.0.1:{srv.server_address[1]}/index.html"
 
 
+
+CHAVE_SOBRE = "websig-sobre-visto"
+
+
+def visita_repetida(nav):
+    """Os testes simulam quem já viu "Sobre o painel" (o aviso da 1ª visita é testado à parte). Devolve o new_context original."""
+    original = nav.new_context
+
+    def novo(**kw):
+        ctx = original(**kw)
+        ctx.add_init_script(f"try {{ localStorage.setItem('{CHAVE_SOBRE}', '1'); }} catch (e) {{}}")
+        return ctx
+    nav.new_context = novo
+    return original
+
+
 class Tarefa:
     """Registra cada ação do usuário simulado."""
     def __init__(self, pg):
@@ -92,6 +108,7 @@ def nova(nav, **kw):
 registro = {}
 with sync_playwright() as p:
     nav = lancar(p)
+    ctx_puro = visita_repetida(nav)
 
     # T1: os 3 municípios de menor observado ÷ esperado com pelo menos 10 casos
     ctx, pg, erros = nova(nav); t = Tarefa(pg)
@@ -132,7 +149,7 @@ with sync_playwright() as p:
     ctx, pg, erros = nova(nav); t = Tarefa(pg)
     t.clicar("button[data-v=analise]", "Aba Análise")
     with pg.expect_download() as dl:
-        t.clicar("#baixarCsv", "Baixar CSV")
+        t.clicar("#baixarCsv", "Baixar tabela (CSV)")
     texto = pathlib.Path(dl.value.path()).read_text(encoding="utf-8").lstrip("﻿")
     linhas = list(csv.reader(io.StringIO(texto), delimiter=";"))
     check(";".join(linhas[0]) == R["T5"]["cabecalho"] and len(linhas) - 1 == R["T5"]["linhas_csv"], f"T5: CSV baixado com {len(linhas) - 1} municípios")
@@ -145,6 +162,14 @@ with sync_playwright() as p:
     t.clicar("#painel [data-acao=imprimir]", "Imprimir ficha")
     check(pg.evaluate("window.__imp") == 1 and "Sousa" in pg.inner_text("#impressao"), "T5: ficha de Sousa enviada para impressão")
     registro["T5 (imprimir ficha)"] = t.acoes; check(not erros, f"T5b: sem erros {erros[:1]}"); ctx.close()
+
+    # Primeira visita: "Sobre o painel" abre sozinho e fecha com 1 clique (soma 1 ação só na primeira vez)
+    ctx = ctx_puro(viewport={"width": 1366, "height": 768}); pg = ctx.new_page()
+    pg.goto(INICIO); pg.wait_for_function("window.PAINEL !== undefined")
+    aberto = pg.evaluate("document.getElementById('sobre').open")
+    t = Tarefa(pg); t.clicar("#sobreComecar", "Primeira visita: Começar (fecha Sobre o painel)")
+    check(aberto and not pg.evaluate("document.getElementById('sobre').open"), "primeira visita: Sobre o painel abre e fecha com 1 clique")
+    registro["Primeira visita (só uma vez)"] = t.acoes; ctx.close()
 
     for k, a in registro.items():
         check(len(a) <= MAX_ACOES, f"{k}: {len(a)} ações (limite {MAX_ACOES})")
@@ -195,6 +220,31 @@ with sync_playwright() as p:
                for pal in ["q", "d"]}
         acess[tema] = {"contraste": c, "daltonismo_dE_min": {"sequencial": dal["q"], "divergente": dal["d"]}}
         check(min(c.values()) >= 4.5, f"contraste AA ({tema}): mínimo {min(c.values())}:1 (≥ 4,5)")
+        # hachura do valor instável: lida do próprio mapa (cor da linha e opacidade de cada padrão), misturada à cor de fundo; contraste ≥ 3:1
+        def mistura(base, op, fundo):
+            return "#" + "".join(f"{round(op * int(base[i:i + 2], 16) + (1 - op) * int(fundo[i:i + 2], 16)):02x}" for i in (1, 3, 5))
+        hach = {}
+        for ind in ["taxa", "oe"]:
+            pg.select_option("#ind", ind); pg.wait_for_timeout(300)
+            for fundo, base, op in pg.evaluate("[...document.querySelectorAll('pattern[id^=hach-]')].map(p => [p.querySelector('rect').getAttribute('fill'), p.querySelector('line').getAttribute('stroke'), +p.querySelector('line').getAttribute('stroke-opacity')])"):
+                hach[f"{ind} {fundo}"] = {"linha": base, "opacidade": op, "contraste": round(contraste(mistura(base, op, fundo), fundo), 2)}
+        pg.select_option("#ind", "taxa")
+        acess[tema]["hachura"] = hach
+        check(len(hach) == 10 and min(v["contraste"] for v in hach.values()) >= 3,
+              f"hachura ({tema}): contraste mínimo linha × cor {min(v['contraste'] for v in hach.values())}:1 (≥ 3), opacidade de {min(v['opacidade'] for v in hach.values())} a {max(v['opacidade'] for v in hach.values())}")
+        # escalas: ordem de claridade preservada (normal, protanopia, deuteranopia, tritanopia e tons de cinza) e diferença mínima entre vizinhas
+        def L_(cor, m=None):
+            v = [lin(x) for x in rgb(cor)]
+            if m: v = [min(1, max(0, sum(m[i][j] * v[j] for j in range(3)))) for i in range(3)]
+            return lab(v)[0]
+        ordem = {}
+        for nome_pal, pal in [("sequencial", [tk[f"--q{i}"] for i in range(1, 6)]), ("divergente", [tk[f"--d{i}"] for i in range(1, 6)])]:
+            for vis, m in [("normal", None)] + list(MACHADO.items()) + [("cinza", None)]:
+                Ls = [round(L_(c, m), 1) for c in pal]   # em tons de cinza vale a claridade L* (a impressão preserva a luminância)
+                ok_ordem = all(Ls[i] > Ls[i + 1] for i in range(4)) if nome_pal == "sequencial" else (Ls[0] < Ls[1] < Ls[2] > Ls[3] > Ls[4])
+                ordem[f"{nome_pal} {vis}"] = {"L*": Ls, "ordem_ok": ok_ordem, "menor_passo_L": round(min(abs(Ls[i] - Ls[i + 1]) for i in range(4)), 1)}
+        acess[tema]["ordem_claridade"] = ordem
+        check(all(v["ordem_ok"] for v in ordem.values()), f"escalas ({tema}): ordem de claridade preservada em normal, protanopia, deuteranopia, tritanopia e tons de cinza")
         check(min(min(v.values()) for v in dal.values()) >= 10, f"daltonismo ({tema}): ΔE mínimo entre classes vizinhas {min(min(v.values()) for v in dal.values())} (≥ 10)")
         ctx.close()
 

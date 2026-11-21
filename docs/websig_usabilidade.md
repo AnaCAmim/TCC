@@ -77,3 +77,142 @@ Registro: `capturas/piloto_tarefas.json` (gerado pelos testes) e capturas `pilot
 | WebKit (motor do Safari) | 84 OK, 0 falhas | 28 OK, 0 falhas | Links com `tabindex="0"` (problema 15). No teste: o toque usa um ponto dentro do polígono, porque o centro da caixa pode cair no município vizinho. |
 
 A leitura da área de transferência (Copiar link) e o PDF da ficha só são conferidos no Chrome, porque os outros navegadores do Playwright não liberam essas funções nos testes.
+
+## Acabamento para a apresentação (ramo `bases-contexto`, 18/11/2026)
+
+Revisão de acabamento feita como faria uma banca de Interface com o Usuário, sem novas bases nem indicadores e sem mudar dados, SQL ou fórmulas.
+
+| # | Problema | Heurística / critério | Gravidade | Ajuste feito |
+|---|---|---|---|---|
+| A1 | Quem chegava pela primeira vez não tinha uma explicação do painel: para que serve, como usar, fontes e avisos. | H10 Ajuda e documentação; H2 Correspondência com o mundo real | 3 | Tela **"Sobre o painel"**: abre na 1ª visita, com para que serve, uso em 3 passos, os 5 indicadores em uma linha cada, fontes com data e os avisos (notificação ≠ ocorrência; poucos casos). Fecha com um clique ("Começar") e não volta (localStorage com try/catch). Botão "Sobre o painel" no topo. Não abre quando se chega por link de uma ficha. |
+| A2 | A ficha não dizia o que olhar primeiro: começava por 5 cartões do mesmo peso. | H8 Estética e design minimalista; hierarquia visual | 3 | **Frase-resumo calculada** no topo (ex.: "Notifica bem menos que o estado: 0,09 do esperado (todos os tipos, 2019 a 2024)"), com os mesmos cortes da legenda (0,5 · 0,8 · 1,25 · 2). Depois "Os 5 indicadores" e, em seguida, os contextos: faixa etária em detalhe, casos por ano, onde foram atendidas e serviços da MUNIC. |
+| A3 | No celular, a ficha era um rolo longo. | H8; WCAG 1.4.10 Refluxo | 2 | Seções recolhíveis (`<details>`); no celular, só "Os 5 indicadores" começa aberta. Na impressão, todas abrem. |
+| A4 | Sem aviso de carregamento: a tela ficava vazia enquanto os dados chegavam. | H1 Visibilidade do estado do sistema | 2 | "Carregando os dados do painel…" (`role=status`), sobreposto e sem deslocar o layout. |
+| A5 | Se `dados.json` e `dados.js` faltassem, aparecia uma faixa vermelha genérica, com cores fixas que ignoravam o tema escuro. | H9 Ajudar a reconhecer e corrigir erros | 3 | Tela de erro com o que aconteceu e o que fazer (conferir a pasta, extrair o .zip inteiro, rodar `atualizar.bat`) e o botão "Tentar de novo"; usa as cores do tema. |
+| A6 | Filtrar a tabela da Análise por um nome inexistente deixava a tabela vazia, sem explicação. | H9; estados vazios | 2 | Linha "Nenhum município encontrado para …. Confira o nome." |
+| A7 | Termos diferentes para a mesma coisa: "Taxa por 100 mil mulheres" (lista e título do mapa) × "por ano" (legenda); "Taxa / 100 mil / ano" nas tabelas; "Comparar com outros" × "Comparar municípios"; dois "Copiar link" com funções diferentes; "Baixar CSV". | H4 Consistência e padrões | 2 | Nome completo "Taxa por 100 mil mulheres por ano" na lista e no título do mapa; "Taxa por 100 mil/ano" nos cabeçalhos curtos; "Comparar municípios" nos dois lugares; "Copiar link da ficha" na ficha; "Baixar tabela (CSV)". |
+| A8 | Números sem unidade nos gráficos da Análise: a contagem por faixa ("2.592 (25,1%)"), a taxa por faixa e a linha de referência. | Nenhum número sem unidade; H2 | 2 | "2.592 casos (25,1%)", "157,9 por 100 mil/ano · 1.315 casos", "estado: 83,9 por 100 mil/ano", "10.344 casos · 83,9 por 100 mil/ano". |
+| A9 | As leituras da Análise não cobriam os contextos novos nem diziam o que fazer com cada achado. | H2; utilidade para a decisão | 2 | 3 leituras novas, todas calculadas dos dados: faixa de maior taxa (10 a 14 anos), % atendidas na própria região de saúde e quantos municípios declaram cada serviço na MUNIC 2023. **Toda** leitura ganhou "Pergunta para a gestão". O título do bloco passou a "Leituras prontas". |
+| A10 | Não havia roteiro para demonstrar o painel em poucos minutos. | H10; apoio à apresentação | 1 | Botão **"Tour"**: 6 passos (mapa da taxa → observado ÷ esperado → ficha de Sousa → faixa etária em taxa → Análise → Como calcular), cada um com uma frase, Anterior/Próximo, setas ← → e Esc; ao sair, o foco volta ao botão. |
+| A11 | Abrir o painel montava as três telas de uma vez: no celular simulado, 380 ms de bloqueio e Desempenho 75 no Lighthouse. | Eficiência; tempo de resposta | 2 | Análise e Como calcular só são montadas na primeira vez que se abre a aba; "Sobre o painel" abre sem esperar os dados; o aviso de carregamento não desloca o layout; meta description. Lighthouse: celular 99, computador 100 (ver `docs/lighthouse/`). |
+
+Teste-piloto depois do acabamento: as tarefas continuam com 1 ou 2 ações. Na primeira visita há 1 ação a mais (fechar "Sobre o painel"), só uma vez.
+
+## Visual de relatório técnico (ramo `bases-contexto`, 20/11/2026)
+
+Objetivo: tirar a aparência de interface genérica e dar ao painel o visual de relatório técnico / jornalismo de dados. Dados, SQL, fórmulas, indicadores, funções e a estrutura das 3 telas não mudaram. O front anterior está em `backup/etapa5/`, fora do repositório.
+
+### Visual (antes → depois)
+
+| # | Elemento | Antes | Depois |
+|---|---|---|---|
+| V1 | Cor institucional | Roxo (#5b3fa8) em abas ativas, botões principais, faixas laterais e ícones | Azul-petróleo escuro (#0e4f5c; no tema escuro, #7fc3cf) só em links, foco e item ativo; o resto em cinzas quentes. Escalas do mapa sem mudança |
+| V2 | Tipografia | Fonte do sistema (system-ui) em tudo | IBM Plex Sans no texto e IBM Plex Serif nos títulos, servidas de `web/fonts/` (woff2, cerca de 60 KB; licença OFL em `web/fonts/OFL.txt`). Números tabulares em tabelas, ficha, ranking, destaques e gráficos |
+| V3 | Cantos | 8 a 14 px; botões e abas em pílula | 2 a 4 px |
+| V4 | Abas (Mapa, Análise, Como calcular) | Botões arredondados, o ativo preenchido de roxo | Texto com sublinhado de 2 px na cor institucional no item ativo |
+| V5 | Alternâncias (10 maiores/menores; Casos/Taxa) | Botões arredondados com fundo lilás no ativo | Mesmo padrão sublinhado das abas |
+| V6 | Botões | Pílulas; o principal em roxo | Retângulos com borda fina (contraste ≥ 3:1); o principal em cinza-escuro sólido |
+| V7 | Sombras | No título e na legenda do mapa, na ficha, no tour e nos avisos | Nenhuma; borda fina só onde algo flutua sobre o mapa |
+| V8 | Cartões | Análise e Como calcular em cartões com borda e fundo; indicadores da ficha em caixas | Seções separadas por linha fina e espaço; indicadores da ficha em linhas |
+| V9 | Faixas coloridas à esquerda | Resultados da Análise (roxo), frase-resumo da ficha (azul/vermelho), tela de erro | Removidas; a hierarquia vem do tamanho e do peso do texto |
+| V10 | Topo | Título e subtítulo; faixa amarela de aviso em toda a largura | Cabeçalho de relatório: título em serifa, subtítulo com período e fontes, nota discreta sob o título e crédito "TCC · Sistemas de Informação · UFPB/CCAE" à direita |
+| V11 | Números-resumo da Análise | Quatro cartões com número de 28 px | Linha de destaques entre filetes, número de 20 px e rótulo curto |
+| V12 | Principais resultados | Título em negrito, evidência e pergunta em itálico roxo | Um parágrafo por resultado com os números em negrito; "Para a gestão: …" em texto normal |
+| V13 | Tela Sobre | Avisos numa caixa amarela | Seções com títulos discretos em versalete: Como usar, Indicadores, Como ler, Fontes |
+| V14 | Favicon | Roxo | Azul-petróleo |
+
+### Texto (antes → depois)
+
+| # | Onde | Antes | Depois |
+|---|---|---|---|
+| T1 | Ranking | "Bom Jesus — 505,5 por 100 mil/ano" (travessão) | "Bom Jesus: 505,5 por 100 mil/ano" |
+| T2 | Aviso de notificação | Faixa amarela no topo; "Notificação não é ocorrência" no Sobre; "A notificação mede o registro, não a ocorrência" em Fontes e limitações | Uma nota sob o título: "Os números são casos notificados pelos serviços de saúde, não o total de casos que ocorrem." Em Como calcular fica só a leitura específica do observado ÷ esperado |
+| T3 | Aviso de poucos casos | Na legenda do mapa, no ranking, na tabela, três vezes na ficha, no Sobre e três vezes em Como calcular | Só onde há asterisco ou valor instável: nota do ranking e das tabelas ("* Menos de 10 casos no período: valor instável."), aviso curto na ficha e uma linha "Como ler" no Sobre. Saiu da legenda, da frase-resumo e dos "Cuidado" de taxa e de local |
+| T4 | Resultados (Análise) | "…não só a mulher adulta."; "…mas não só pelo tamanho."; "…ou seja, notifica proporcionalmente mais…"; "É onde vale o gestor investigar primeiro."; "Vale conhecer o que funciona neles." | Frases diretas, sem essas construções: "Meninas e mulheres jovens concentram os casos."; "Os casos se concentram nos municípios maiores."; dois títulos passaram a trazer o número calculado ("17 municípios notificam menos da metade do esperado.") |
+| T5 | Título do bloco | "Leituras prontas"; "Pergunta para a gestão:" | "Principais resultados"; "Para a gestão:" |
+| T6 | Destaques | "casos por 100 mil mulheres por ano (média do estado)"; "variação de casos entre 2019 e 2024" | "por 100 mil mulheres por ano, estado"; "variação dos casos, 2019 a 2024" |
+| T7 | Sobre | "Mostra as notificações … para apoiar gestoras e gestores públicos a planejar a rede de atendimento."; "Escolha o que ver no topo à esquerda: …"; "Começar pelo tour" | "Notificações de violência contra a mulher nos 223 municípios da Paraíba, de 2019 a 2024. Feito para gestoras e gestores da rede de atendimento."; um passo por frase; "Ver o tour" |
+| T8 | Tour | "Agora o mapa compara cada município…"; "dá para comparar idades…"; "qualquer número do painel pode ser refeito…" | "Cada município comparado com o estado. Azul: abaixo do esperado. Vermelho: acima."; "A taxa por 100 mil mulheres da faixa permite comparar idades com populações diferentes."; "Todas as contas podem ser refeitas numa planilha." |
+| T9 | Ficha | "Com números tão pequenos, um caso a mais ou a menos muda muito a taxa e o observado ÷ esperado."; "Barra: … · traço preto: …"; "Detalhe por faixa, em casos ou em taxa, em 'Faixa etária em detalhe'." | "Poucos casos (N no tipo e período): taxa e observado ÷ esperado instáveis."; "Barra: … Traço: …"; "Detalhe por faixa abaixo, em casos ou em taxa." |
+| T10 | Dicas do indicador | "Quantidade de notificações. Mostra onde está o volume de atendimento."; "Compara o município com o estado: 1 é igual, abaixo de 1 notifica menos, acima notifica mais." | "Número de notificações. Mostra o volume de atendimento."; "Compara com o estado: 1 é igual; abaixo de 1, notifica menos; acima, mais." |
+| T11 | Como calcular | "Os cinco indicadores deste painel … Nenhum modelo estatístico complexo é usado …"; definições longas; "Não é um sexto indicador: …" | "Como os indicadores são calculados" e uma frase de fontes; definições de uma linha ("Casos por ano a cada 100 mil mulheres do município."); "Contexto: local de atendimento", terminando em "Não é um indicador." |
+| T12 | Rodapé | Crédito do TCC repetido | Crédito só no topo; rodapé com "Dados públicos e agregados, sem identificação de pessoas." e o endereço do código-fonte |
+
+### Conferência
+
+- Contraste mínimo (testar_usabilidade.py): claro 5,29:1 (antes 4,77:1); escuro 6,36:1 (antes 5,9:1). Foco na cor institucional: 8,8:1 (claro) e 9,2:1 (escuro). Paleta do mapa sem mudança (ΔE mínimo 10,0).
+- Lighthouse (página inicial, servidor com compressão): celular Desempenho 99 e Acessibilidade 100; computador 100 e 100 (`docs/lighthouse/`). Sem pré-carregamento das fontes, o celular caía para 96. O pré-carregamento só é feito quando o painel é servido por http, porque no duplo clique (`file://`) o navegador o bloqueia e acusa erro de CORS.
+- Testes: dados 66, painel 120 (Firefox e WebKit 119), usabilidade 30, nos dois modos de abertura. Novo teste: nenhum travessão nos textos das telas, do Sobre e do Tour.
+
+## Melhorias cartográficas no mapa (ramo `bases-contexto`, 20/11/2026)
+
+Dados, SQL, fórmulas e indicadores não mudaram. O exportador passou a gravar no `dados.json` o contorno do estado e das 16 regiões de saúde, calculados no PostGIS pela união das geometrias municipais (`ST_Union`, simplificados a cerca de 250 m). São só desenho e não entram em nenhuma conta. O front anterior está em `backup/etapa7/`, fora do repositório.
+
+| # | Elemento | Antes | Depois | Princípio cartográfico |
+|---|---|---|---|---|
+| C1 | Casos notificados | Municípios coloridos por classe de casos (mapa coroplético de contagem) | Círculo no centroide de cada município, com **área** proporcional aos casos (raio pela raiz quadrada; o maior, João Pessoa, com 26 px), sobre base cinza com limites. Os maiores são desenhados atrás. Taxa e observado ÷ esperado continuam em cores | Contagens absolutas pedem símbolos proporcionais: no coroplético, município grande "pesa" pela área do território, não pelo número de casos. Raio pela raiz quadrada porque o olho compara áreas |
+| C2 | Valor instável | Só um * no ranking e nas tabelas; no mapa, nada | Hachura leve (linhas diagonais de 1 px a cada 8 px) sobre a cor dos municípios com menos de 10 casos no tipo e período, com item próprio na legenda e contagem (95 no total de 2019 a 2024) | Sinalizar incerteza no próprio mapa, sem esconder o dado: a cor continua legível e a textura avisa que o valor oscila. A linha (escura ou clara) é a de maior contraste com a cor: mínimo de 3,22:1 nos dois temas |
+| C3 | Contorno do estado | Igual aos limites municipais | Linha grossa (2,4 px) na cor do texto | Hierarquia de linhas: o limite mais importante é o mais grosso |
+| C4 | Regiões de saúde | Sem limite visível | Linha intermediária (1,3 px, cinza) entre o estado e os municípios, com opção "Mostrar limites das regiões de saúde" | Hierarquia visual e unidade de gestão do SUS, que é a escala do planejamento regional |
+| C5 | Cidades de referência | Nenhum rótulo | Rótulos de João Pessoa, Campina Grande, Patos, Sousa, Cajazeiras, Guarabira e Monteiro, em ordem de prioridade, sem sobrepor outro rótulo, a ficha, a legenda ou o título; o texto vai à esquerda do ponto quando à direita não cabe; os dois últimos somem com menos zoom. As sedes das 16 regiões não estão nos dados oficiais do DATASUS (os nomes são só "2ª Região" etc.), por isso entram só esses 7 polos | Pontos de referência para a pessoa se localizar; colocação de rótulos sem conflito |
+| C6 | Escala e fonte | Ausentes | Barra de escala em km e "Fonte: SINAN/TABNET, 2019 a 2024; IBGE, Censo 2022 e malha municipal" no canto inferior esquerdo | Elementos obrigatórios de um mapa temático |
+| C7 | Enquadramento com a ficha | Zoom no município escolhido; parte do estado ficava atrás da ficha | O recorte inteiro (estado ou região) é enquadrado na área livre: à esquerda da ficha no computador e acima dela no celular. Sem a ficha, a legenda também é descontada | Nenhum dado escondido por elemento da interface |
+| C8 | Navegação | Arraste e zoom livres | Arraste limitado à Paraíba com margem (o limite é recalculado após cada enquadramento, para não puxar o mapa de volta), zoom mínimo e máximo e botão "Ver estado inteiro" | Evitar que a pessoa se perca num mapa vazio |
+| C9 | Legenda | Classes com rótulo; média do estado só em texto | Título com unidade ("Taxa por 100 mil mulheres por ano"; "Casos notificados (número de notificações)"; "Observado ÷ esperado (1 = igual ao estado)"), recorte atual (tipo · período · Paraíba ou região), número de municípios em cada classe com mini-histograma, ◆ na classe da média do estado, item da hachura e uma linha explicando as classes (quintis na taxa; classes fixas em torno de 1 no observado ÷ esperado; área proporcional nos casos, com 3 círculos de referência: 10, 100 e 1.000) | A legenda diz o que se mede, em que unidade, como as classes foram feitas e quanto pesa cada uma |
+| C10 | Filtro de região | Municípios de fora esmaecidos | Além disso, o limite da região escolhida é destacado (3,2 px, cor institucional) | Figura e fundo: a região em foco se destaca sem esconder o contexto |
+| C11 | Baixar mapa (PNG) | Não havia | O mapa atual é redesenhado num canvas com título (indicador, tipo, período, recorte), legenda, barra de escala, rótulos e fonte, e baixado como PNG (em 2×). Funciona nos dois modos de abertura; se falhar, uma mensagem orienta a abrir pelo link publicado | Mapa pronto para relatório, com os elementos que o tornam legível fora do painel |
+| C12 | Celular com a ficha aberta | Legenda, escala e fonte ficavam por cima da ficha | Enquanto a ficha está aberta, o celular esconde legenda, escala, fonte e "Ver estado inteiro"; a dica da região de saúde (que repete o rótulo) também sai, para o mapa continuar na primeira tela | No espaço pequeno, mostrar o dado e esconder o acessório |
+
+Conferência:
+- Testes novos: área dos círculos de João Pessoa, Campina Grande e Sousa proporcional aos casos (r² ÷ casos constante; maiores atrás); hachura exatamente nos 95 municípios com menos de 10 casos (igual à view) e contagem por classe somando 223; enquadramento com a ficha aberta no computador e no celular; PNG gerado nos dois modos de abertura; rótulos sem sobreposição; regiões ligam e desligam; limite da região escolhida destacado; contraste da hachura ≥ 3:1 nos dois temas.
+- Testes: dados 67, painel 138 (Firefox e WebKit 137), usabilidade 32, 0 falhas.
+- Lighthouse local (com compressão): celular 97 e 98 de desempenho (antes 99) e 100 de acessibilidade; computador 100 e 100. A primeira versão ficou em 95: o mapa era desenhado e logo reenquadrado na abertura. Calcular a vista antes de pôr as camadas e adiar contornos e rótulos para depois do primeiro desenho recuperou quase toda a diferença.
+
+## Revisão visual a partir da auditoria do site publicado (ramo `bases-contexto`, 20/11/2026)
+
+Dados, SQL, fórmulas, indicadores e funções não mudaram. O front anterior está em `backup/etapa6/`, fora do repositório (o acabamento antigo virou `backup/etapa6_acabamento/`).
+
+### Princípios adotados
+
+1. **Escala sequencial: claro = baixo, escuro = alto, sempre**, também no tema escuro. O leitor tende a ler a cor mais escura como "mais" (*dark-is-more bias*); inverter a escala no tema escuro faria o mesmo município parecer alto num tema e baixo no outro.
+2. **Passos de claridade uniformes** entre classes vizinhas, para que a distância visual corresponda à distância entre classes.
+3. **Escala divergente: extremos mais escuros, centro claro.** O centro é o valor de referência (O/E = 1, igual ao estado).
+4. **Cor só onde carrega informação.** Gráficos em cinza neutro; uma única série ou barra destacada na cor institucional; linha de referência cinza e tracejada.
+
+Referências:
+- BREWER, C. A.; HARROWER, M. *ColorBrewer 2.0: color advice for cartography*. Penn State University. Disponível em: https://colorbrewer2.org. Paletas YlOrRd (sequencial) e PuOr (divergente), 5 classes, ambas marcadas como seguras para daltonismo.
+- HARROWER, M.; BREWER, C. A. ColorBrewer.org: an online tool for selecting colour schemes for maps. *The Cartographic Journal*, v. 40, n. 1, p. 27–37, 2003.
+- DATAWRAPPER ACADEMY. *Which color scale to use when visualizing data* e *What to consider when choosing colors for data visualization*. Disponível em: https://academy.datawrapper.de.
+- SCHIEWE, J. Empirical studies on the visual perception of choropleth maps: the dark-is-more bias. *KN – Journal of Cartography and Geographic Information*, v. 74, p. 171–180, 2024.
+
+### Itens (antes → depois)
+
+| # | Elemento | Antes | Depois |
+|---|---|---|---|
+| R1 | Mapa e legenda no tema escuro | Na versão publicada, o fundo do mapa e da legenda ficavam claros no tema escuro | Fundo do mapa e da legenda seguem o tema (no ramo já seguiam; agora um teste mede a luminância do fundo nos dois temas, em 1366 e no celular). As paletas são idênticas nos dois temas: claro continua sendo baixo |
+| R2 | Cores da taxa | Rampa azul própria (#b7d3f6 a #104281), invertida no tema escuro: lá o azul mais escuro era o valor mais baixo | ColorBrewer YlOrRd 5: #ffffb2, #fecc5c, #fd8d3c, #f03b20, #bd0026, igual nos dois temas |
+| R3 | Cores do observado ÷ esperado | Divergente azul–vermelho própria (#1c5cab a #c93b3a), centro bege (#d4cfc4) que no tema escuro virava cinza-escuro (#4a4944), mais escuro que os extremos | ColorBrewer PuOr 5: #5e3c99 (menos de 0,5), #b2abd2 (0,5 a 0,8), #f7f7f7 (0,8 a 1,25), #fdb863 (1,25 a 2), #e66101 (2 ou mais). O limite municipal continua visível sobre a classe central (#f7f7f7) |
+| R4 | Classes da taxa | Quintis recalculados a cada combinação de tipo e período: a mesma cor mudava de significado ao trocar o filtro | Classes fixas por tipo, calculadas uma vez a partir das taxas anuais 2019–2024 de todos os municípios (quintis das taxas positivas, arredondados): total 40/60/90/140; física 30/50/70/120; psicológica 20/30/50/80; sexual 15/25/40/60. Linha na legenda: "Classes fixas: quintis das taxas anuais dos municípios de 2019 a 2024 neste tipo, arredondados. Valem para qualquer ano ou período." |
+| R5 | Legenda com a ficha aberta | No canto inferior direito: com a ficha aberta (também à direita), ficava coberta por ela | Sempre visível no computador, no canto inferior esquerdo, também com a ficha aberta (o enquadramento desconta a largura da legenda e da ficha). No celular, recolhível pelo botão "Legenda" (aria-expanded); com a ficha aberta, continua escondida para o mapa caber na tela |
+| R6 | Cores dos gráficos | Quatro cores genéricas (uma por tipo), sem hierarquia | Cinza neutro; uma série destacada em azul-petróleo (Sexual na série anual e no gráfico de tipos; a faixa com mais casos e a de maior taxa nos gráficos de faixa etária); linha do estado cinza e tracejada; nenhuma das 4 cores antigas |
+| R7 | Hachura do valor instável | Linha a cada 8 px, sempre ligada | Hachura sutil (1 px a cada 10 px, opacidade mínima que dá contraste ≥ 3:1 com a cor de fundo) e opção "Destacar municípios com poucos casos", ligada por padrão; o item da legenda some quando desligada |
+| R8 | Mini-histograma da legenda | Em todas as classes, inclusive nos quintis (onde as barras eram quase iguais por construção) | Só nas classes fixas do observado ÷ esperado; na taxa, só a contagem de municípios |
+| R9 | Mapa de casos | Pontos das cidades de referência sobre os círculos; círculos na cor institucional | Sem os pontos (rótulos só com halo); círculos laranja-escuro (#d95f02) semitransparentes com contorno branco sobre base cinza clara |
+| R10 | Limites das regiões | Mais finos e mais claros que o necessário para se distinguir dos municipais | Regiões em 1,8 px, cor quase preta (#34322e); municípios em 0,6 px, cinza translúcido. Hierarquia: estado > região > município |
+| R11 | Botões do cabeçalho e do mapa | "Ver estado inteiro" como botão de texto grande; "Sobre o painel", "Tour" e "Copiar link" como botões com borda | "Ver estado inteiro" é um botão de ícone de 44 px junto ao zoom, com aria-label e title; os três do cabeçalho viraram links de texto sem borda |
+| R12 | Rótulos da legenda | Rótulos longos repetindo a unidade em cada classe | Rótulos curtos ("menos de 40", "40 a 60", "2 ou mais"); o significado fica no título ("Observado ÷ esperado (1 = igual ao estado; abaixo de 1, notifica menos)") |
+| R13 | Foco ao abrir a ficha | Foco no título com moldura visível | Foco programático no título (leitor de tela anuncia o município) sem moldura; o foco por Tab nos controles continua com contorno |
+| R14 | Números nos gráficos e na tabela | Todos os valores em negrito; colunas numéricas largas | Valores em peso normal, só o número comentado em negrito; na tabela da Análise, colunas numéricas compactas e alinhadas à direita (largura máxima 820 px) |
+| R15 | Daltonismo e escala de cinza | ΔE mínimo medido, sem conferir a ordem das classes | Conferidas a ordem de claridade (L*) e a diferença mínima entre vizinhas em visão normal, protanopia, deuteranopia, tritanopia e escala de cinza (números abaixo) |
+
+### Conferência
+
+- **Ordem preservada em todas as simulações e em cinza:** na sequencial, L* cai a cada classe; na divergente, forma um V com o centro mais claro.
+- L* sequencial (normal e cinza): 98,4 · 84,5 · 69,7 · 53,8 · 39,5 (menor passo 13,9). Protanopia: menor passo 14,1; deuteranopia 11,5; tritanopia 9,9 (97,2 · 82,0 · 66,1 · 53,5 · 43,6).
+- L* divergente (normal e cinza): 33,8 · 71,7 · 97,2 · 79,7 · 57,4 (menor passo 17,5; protanopia 21,1; deuteranopia 15,4; tritanopia 20,0).
+- ΔE mínimo entre classes vizinhas (iguais nos dois temas): sequencial 24,5 (normal), 19,4 (protanopia), 13,1 (deuteranopia), 16,1 (tritanopia); divergente 33,3 / 26,5 / 23,6 / 25,6.
+- Hachura: linha escura (#262522) com opacidade 0,5 a 0,75 nas classes claras; branca com 0,5 a 0,65 sobre #bd0026 e #5e3c99. Contraste linha × cor de 3,01 a 3,32:1 (mínimo exigido 3:1), conferido nos padrões do próprio mapa.
+- Contagens da legenda (todos os tipos, 2019–2024): taxa 74 / 50 / 44 / 35 / 20, 95 com hachura; observado ÷ esperado 76 / 61 / 42 / 32 / 12.
+- Testes: dados 67, painel 157 (Firefox e WebKit 156), usabilidade 34, 0 falhas. Novos: paletas e classes fixas (iguais em "todos os anos" e em 2024; diferentes por tipo); histograma só no O/E; legenda visível sem cobrir a ficha; foco no título sem moldura; fundo do mapa e da legenda conforme o tema; legenda recolhível no celular; gráficos com uma série destacada; rótulos dentro do mapa; ordem de claridade nas simulações.
+- Lighthouse local (com compressão): celular 98 de desempenho no relatório guardado (quatro rodadas: 93, 97, 98 e 97; mediana 97,5; etapa anterior 97 e 98), computador 100; acessibilidade 100 nos dois.
+- Capturas novas em `capturas/`: `{1366,celular}_{claro,escuro}_mapa_{taxa,oe,casos}.png`, além de `*_mapa_ficha.png` (ficha aberta com a legenda) e `*_analise.png`.
