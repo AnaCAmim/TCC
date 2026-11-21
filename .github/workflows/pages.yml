@@ -1,14 +1,19 @@
 # Publica a pasta web/ (o painel) no GitHub Pages.
-# Roda a cada push que mude web/ em main ou bases-contexto, ou manualmente (Actions → "Publicar painel" → Run workflow).
-# Requer, uma vez: Settings → Pages → Source = "GitHub Actions"; e, para publicar a partir de bases-contexto,
-# Settings → Environments → github-pages → Deployment branches: incluir bases-contexto.
+# Este arquivo fica na main para o botão "Run workflow" aparecer em Actions.
+# Por padrão publica o painel do ramo bases-contexto; no botão dá para escolher outro ramo.
+# Requer, uma vez: Settings → Pages → Source = "GitHub Actions".
 name: Publicar painel no GitHub Pages
 
 on:
-  push:
-    branches: [main, bases-contexto]
-    paths: ["web/**", ".github/workflows/pages.yml"]
   workflow_dispatch:
+    inputs:
+      ramo:
+        description: "Ramo cujo painel (pasta web/) será publicado"
+        required: true
+        default: bases-contexto
+  push:
+    branches: [main]
+    paths: [".github/workflows/pages.yml"]
 
 permissions:
   contents: read
@@ -27,6 +32,8 @@ jobs:
       url: ${{ steps.publicacao.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ramo || 'bases-contexto' }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
