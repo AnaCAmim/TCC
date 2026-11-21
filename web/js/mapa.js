@@ -7,9 +7,9 @@ WS.mapa = (function () {
   const S = { ind: 'taxa', tipo: 'total', per: 'all', reg: '', sel: null, rk: 'maiores', tabela: false, fx: 'casos' };
   const MIN_CASOS = 10;   // abaixo disso a taxa e o observado ÷ esperado ficam instáveis
   const HINT = {
-    taxa: 'Casos por ano para cada 100 mil mulheres. Permite comparar municípios de tamanhos diferentes.',
-    casos: 'Quantidade de notificações. Mostra onde está o volume de atendimento.',
-    oe: 'Compara o município com o estado: 1 é igual, abaixo de 1 notifica menos, acima notifica mais.'
+    taxa: 'Casos por ano a cada 100 mil mulheres. Compara municípios de tamanhos diferentes.',
+    casos: 'Número de notificações. Mostra o volume de atendimento.',
+    oe: 'Compara com o estado: 1 é igual; abaixo de 1, notifica menos; acima, mais.'
   };
   let C, map, camada, CL, porCamada = {}, ORDEM = [], naFrente = null, tip, ponteiro = 'mouse', dicaCod = null, dicaModo = null;
   const noRecorte = p => !S.reg || p.reg === S.reg;          // município dentro da região de saúde escolhida
@@ -83,10 +83,9 @@ WS.mapa = (function () {
   function legenda() {
     let h = '<b>' + C.NOME_IND[S.ind] + '</b><div style="color:var(--ink-3);margin:-4px 0 6px">' + C.TIPOS[S.tipo] + ' · ' + C.nomePer(S.per) + '</div>';
     CL.rot.forEach((r, i) => { h += '<div class="row"><span class="sw" style="background:' + css(CL.cores[i]) + '"></span>' + r + '</div>'; });
-    if (S.ind === 'taxa') h += '<small>Média do estado: ' + nf(C.taxaEstado(S.tipo, S.per), 1) + ' por 100 mil/ano.' + (S.reg ? ' Média da ' + esc(nomeReg(S.reg)) + ': ' + nf(C.taxaRegiao(S.reg, S.tipo, S.per), 1) + '.' : '') + ' Cada cor reúne cerca de 1/5 dos municípios.</small>';
+    if (S.ind === 'taxa') h += '<small>Média do estado: ' + nf(C.taxaEstado(S.tipo, S.per), 1) + ' por 100 mil/ano.' + (S.reg ? ' Média da ' + esc(nomeReg(S.reg)) + ': ' + nf(C.taxaRegiao(S.reg, S.tipo, S.per), 1) + '.' : '') + ' Cada classe reúne cerca de 1/5 dos municípios.</small>';
     if (S.ind === 'oe') h += '<small>1 = o município notifica na mesma proporção que o estado.</small>';
     if (S.ind === 'casos') h += '<small>Estado: ' + nf(C.casosEstado(S.tipo, S.per)) + ' casos.</small>';
-    if (S.ind !== 'casos') h += '<small>Com menos de 10 casos no período, o valor é instável.</small>';
     $('leg').innerHTML = h;
   }
   function ranking() {
@@ -94,12 +93,12 @@ WS.mapa = (function () {
     let lst, nota;
     if (S.rk === 'maiores') {
       lst = todos.sort((a, b) => valor(b) - valor(a)).slice(0, 10);
-      nota = '* menos de 10 casos no período escolhido: valor instável. Escolha um município aqui, no mapa, na busca ou na tabela para ver a ficha.';
+      nota = '* Menos de 10 casos no período: valor instável.';
     } else {
       lst = todos.filter(p => casosSel(p) >= MIN_CASOS).sort((a, b) => valor(a) - valor(b)).slice(0, 10);
-      nota = 'Só municípios com pelo menos 10 casos no tipo e período escolhidos: com menos, um único caso muda muito o valor e o município pareceria "o menor" por acaso.';
+      nota = 'Inclui só municípios com pelo menos 10 casos no tipo e período.';
     }
-    $('rk').innerHTML = lst.map(p => '<li><a href="#mapa-' + p.cod + '" tabindex="0">' + esc(p.nome) + '</a> — ' + fmtValor(valor(p)) + (casosSel(p) < MIN_CASOS ? ' *' : '') + '</li>').join('') || '<li>Nenhum município com 10 casos ou mais neste filtro.</li>';
+    $('rk').innerHTML = lst.map(p => '<li><a href="#mapa-' + p.cod + '" tabindex="0">' + esc(p.nome) + '</a>: ' + fmtValor(valor(p)) + (casosSel(p) < MIN_CASOS ? ' *' : '') + '</li>').join('') || '<li>Nenhum município com 10 casos ou mais neste filtro.</li>';
     $('rknota').textContent = (S.reg ? 'Só municípios da ' + nomeReg(S.reg) + '. ' : '') + nota;
     document.querySelectorAll('.rktabs button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.r === S.rk)));
     $('rk').setAttribute('aria-label', S.rk === 'maiores' ? '10 maiores valores' : '10 menores valores, só municípios com pelo menos 10 casos');
@@ -112,7 +111,7 @@ WS.mapa = (function () {
       '>Taxa por 100 mil/ano</th><th' + at('oe') + '>Observado ÷ esperado</th></tr></thead><tbody>' +
       linhas.map(p => '<tr data-c="' + p.cod + '" tabindex="0"><td>' + esc(p.nome) + (casosSel(p) < MIN_CASOS ? ' *' : '') + '</td><td>' + nf(p.pop) + '</td><td' + at('casos') + '>' + nf(casosSel(p)) + '</td><td' + at('taxa') + '>' +
         nf(C.taxa(p, S.tipo, S.per), 1) + '</td><td' + at('oe') + '>' + nf(C.oe(p, S.tipo, S.per), 2) + '</td></tr>').join('') +
-      '</tbody></table><p class="hint" style="margin-top:8px">' + (S.reg ? nf(linhas.length) + ' municípios da ' + esc(nomeReg(S.reg)) + '. ' : '') + 'Mesmos valores e filtros do mapa, ordenados pelo indicador escolhido. * menos de 10 casos no período: valor instável.</p>';
+      '</tbody></table><p class="hint" style="margin-top:8px">' + (S.reg ? nf(linhas.length) + ' municípios da ' + esc(nomeReg(S.reg)) + '. ' : '') + 'Mesmos valores e filtros do mapa, em ordem do indicador escolhido. * Menos de 10 casos no período: valor instável.</p>';
   }
   function atualizar() {
     $('indhint').textContent = HINT[S.ind];
@@ -130,7 +129,7 @@ WS.mapa = (function () {
       const mark = ref ? '<span class="ref" style="left:' + (100 * ref[i] / escala) + '%" title="Estado: ' + nf(100 * ref[i], 0) + '%"></span>' : '';
       return '<span class="r">' + r + '</span><span class="tr"><span class="b" style="width:' + larg + '%"></span>' + mark + '</span><span class="n">' + nf(v) +
         (ref && tot ? ' <small>(' + nf(100 * v / tot, 0) + '%)</small>' : '') + '</span>';
-    }).join('') + '</div>' + (ref ? '<div class="leg-ref">Barra: % do município · traço preto: % do estado</div>' : '');
+    }).join('') + '</div>' + (ref ? '<div class="leg-ref">Barra: % do município. Traço: % do estado.</div>' : '');
   }
   // Frase com a faixa etária mais atingida (empates aparecem juntos; a faixa "Ignorada" não entra)
   function faixaTopo(p) {
@@ -147,8 +146,8 @@ WS.mapa = (function () {
       if (tx[i] == null) return '<span class="r">' + C.rotFx(f) + '</span><span class="tr semtaxa"></span><span class="n"><small>sem taxa (' + nf(p.faixa[i]) + (p.faixa[i] === 1 ? ' caso' : ' casos') + ')</small></span>';
       return '<span class="r">' + C.rotFx(f) + '</span><span class="tr"><span class="b" style="width:' + (100 * tx[i] / escala) + '%"></span>' +
         '<span class="ref" style="left:' + (100 * te[i] / escala) + '%" title="Estado: ' + nf(te[i], 1) + '"></span></span><span class="n">' + nf(tx[i], 1) + (p.faixa[i] < MIN_CASOS ? ' *' : '') + '</span>';
-    }).join('') + '</div><div class="leg-ref">Barra: taxa do município · traço preto: taxa do estado na mesma faixa (por 100 mil mulheres da faixa, por ano). ' +
-      (p.faixa.slice(0, C.N_FX_TAXA).some(v => v < MIN_CASOS) ? '* menos de 10 casos na faixa: valor instável. ' : '') + 'A faixa "Ignorada" não tem taxa.</div>';
+    }).join('') + '</div><div class="leg-ref">Barra: taxa do município. Traço: taxa do estado na mesma faixa (por 100 mil mulheres da faixa, por ano). ' +
+      (p.faixa.slice(0, C.N_FX_TAXA).some(v => v < MIN_CASOS) ? '* Menos de 10 casos na faixa: valor instável. ' : '') + 'A faixa "Ignorada" não tem taxa.</div>';
   }
   const fxCorpo = p => (S.fx === 'taxa' ? barrasTaxa(p)
     : barras(C.FX.map((f, i) => [C.rotFx(f), p.faixa[i]]), p.faixa.some(v => v) ? C.faixaEstado.map(v => v / C.casosEstado('total', 'all')) : null));
@@ -170,9 +169,9 @@ WS.mapa = (function () {
   function htmlLocal(p) {
     const tot = p.local[0] + p.local[1] + p.local[2];
     const rot = [C.LOCAIS[0] + (C.REG[p.reg] ? ' (' + esc(nomeReg(p.reg)) + ')' : ''), C.LOCAIS[1], C.LOCAIS[2]];
-    return '<div class="local"><p class="nota" style="margin:0 0 6px">Todos os tipos de violência. Local da notificação em relação à região de saúde onde a mulher mora.</p>' +
+    return '<div class="local"><p class="nota" style="margin:0 0 6px">Todos os tipos. Local da notificação em relação à região de saúde de residência.</p>' +
       WS.util.barra100(rot.map((r, k) => ({ rot: r, n: p.local[k], cor: css(CORES_LOCAL[k]), k: k + 1 }))) +
-      (tot && tot < MIN_CASOS ? '<div class="flag">Poucos casos (' + nf(tot) + '): um caso a mais ou a menos muda muito as porcentagens. Valor instável.</div>' : '') +
+      (tot && tot < MIN_CASOS ? '<div class="flag">Poucos casos (' + nf(tot) + '): porcentagens instáveis.</div>' : '') +
       '<p class="nota">' + NOTA_LOCAL + '</p></div>';
   }
   // O que olhar primeiro: frase-resumo calculada (mesmos cortes da legenda: 0,5 · 0,8 · 1,25 · 2)
@@ -181,7 +180,7 @@ WS.mapa = (function () {
     if (!c) return { nivel: 'sd', txt: '<b>Nenhuma notificação</b>' + filtro + '.' };
     const n = o < 0.5 ? ['bem-menos', 'Notifica bem menos que o estado'] : o < 0.8 ? ['menos', 'Notifica menos que o estado'] : o <= 1.25 ? ['perto', 'Notifica perto da média do estado']
       : o <= 2 ? ['mais', 'Notifica mais que o estado'] : ['bem-mais', 'Notifica bem mais que o estado'];
-    return { nivel: n[0], txt: '<b>' + n[1] + ':</b> ' + nf(o, 2) + ' do esperado' + filtro + '.' + (c < MIN_CASOS ? ' Poucos casos: valor instável.' : '') };
+    return { nivel: n[0], txt: '<b>' + n[1] + ':</b> ' + nf(o, 2) + ' do esperado' + filtro + '.' };
   }
   // seções recolhíveis (no celular, só os 5 indicadores começam abertos)
   const secao = (id, titulo, corpo) => '<details class="sec" data-sec="' + id + '"' + (id === 'ind' || innerWidth > 860 ? ' open' : '') + '><summary><h3>' + titulo + '</h3></summary>' + corpo + '</details>';
@@ -196,7 +195,7 @@ WS.mapa = (function () {
       (C.REG[p.reg] ? '<br>' + esc(nomeReg(p.reg)) + ' · ' + esc(C.REG[p.reg].macro) : '') + '</div>';
     const rs = resumoFicha(c, o, t, per);
     h += '<p class="resumo" data-nivel="' + rs.nivel + '">' + rs.txt + '</p>';
-    if (c < MIN_CASOS) h += '<div class="flag">Poucos casos (' + nf(c) + ' no tipo e período escolhidos). Com números tão pequenos, um caso a mais ou a menos muda muito a taxa e o observado ÷ esperado.</div>';
+    if (c < MIN_CASOS) h += '<div class="flag">Poucos casos (' + nf(c) + ' no tipo e período): taxa e observado ÷ esperado instáveis.</div>';
     h += secao('ind', 'Os 5 indicadores', '<div class="ind5">' +
       '<div class="it"><div class="cab"><span>Casos notificados</span>' + linkCalc('casos') + '</div><div class="v">' + nf(c) + '</div><div class="c">Estado: ' + nf(ce) + ' (' + nf(100 * c / ce, 1) + '% do estado; ' + nf(100 * p.pop / C.POP, 1) + '% das mulheres)</div></div>' +
       '<div class="it"><div class="cab"><span>Taxa por 100 mil mulheres por ano</span>' + linkCalc('taxa') + '</div><div class="v">' + nf(tx, 1) + '</div><div class="c">Média do estado: ' + nf(te, 1) +
@@ -204,7 +203,7 @@ WS.mapa = (function () {
       '<div class="it"><div class="cab"><span>Observado ÷ esperado</span>' + linkCalc('oe') + '</div><div class="v">' + nf(o, 2) + '</div><div class="c">Esperado se seguisse o estado: ' + nf(e, 1) + ' casos · ' + C.leituraOE(o) + ' (estado = 1)</div></div>' +
       '<div class="it"><div class="cab"><span>Tipos de violência (' + C.nomePer(per) + ')</span>' + linkCalc('tipos') + '</div>' + barras(tiposP, totP ? refTipos : null) +
       '<div class="c">Total de notificações: ' + nf(totP) + '. Uma notificação pode ter mais de um tipo.</div></div>' +
-      '<div class="it"><div class="cab"><span>Faixa etária (2019 a 2024, todos os tipos)</span>' + linkCalc('faixa') + '</div>' + faixaTopo(p) + '<div class="c">Detalhe por faixa, em casos ou em taxa, em "Faixa etária em detalhe".</div></div>' +
+      '<div class="it"><div class="cab"><span>Faixa etária (2019 a 2024, todos os tipos)</span>' + linkCalc('faixa') + '</div>' + faixaTopo(p) + '<div class="c">Detalhe por faixa abaixo, em casos ou em taxa.</div></div>' +
       '</div>');
     h += secao('faixa', 'Faixa etária em detalhe (2019 a 2024)', alternaFx() + '<div class="fxcorpo">' + fxCorpo(p) + '</div>');
     h += secao('ano', 'Casos por ano (' + C.TIPOS[t] + ')', barras(C.ANOS.map((a, i) => [String(a), p.casos[t][i]])));

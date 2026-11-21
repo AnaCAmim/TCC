@@ -17,10 +17,10 @@ WS.analise = (function () {
     const muitoAcima = grandes.filter(p => C.oe(p, 'total', 'all') >= 2), poucos = props.filter(p => C.casos(p, 'total', 'all') < 10).length;
     const pct = (a, b) => nf(100 * a / b, 1) + '%';
     $('kpis').innerHTML = [
-      [nf(tot), 'casos notificados de 2019 a 2024'],
-      [nf(C.taxaEstado('total', 'all'), 1), 'casos por 100 mil mulheres por ano (média do estado)'],
-      [(st[5] > st[0] ? '+' : '') + nf(100 * (st[5] / st[0] - 1), 0) + '%', 'variação de casos entre 2019 e 2024'],
-      [nf(poucos), 'municípios com menos de 10 casos em 6 anos']
+      [nf(tot), 'casos notificados, 2019 a 2024'],
+      [nf(C.taxaEstado('total', 'all'), 1), 'por 100 mil mulheres por ano, estado'],
+      [(st[5] > st[0] ? '+' : '') + nf(100 * (st[5] / st[0] - 1), 0) + '%', 'variação dos casos, 2019 a 2024'],
+      [nf(poucos), 'municípios com menos de 10 casos']
     ].map(k => '<div class="kpi"><div class="n">' + k[0] + '</div><div class="l">' + k[1] + '</div></div>').join('');
     // contextos: faixa de maior taxa, local de atendimento e serviços declarados (MUNIC 2023)
     const txFx = C.FX.slice(0, C.N_FX_TAXA).map((_, i) => C.taxaFaixaEstado(i)), iMaxTx = txFx.indexOf(Math.max(...txFx));
@@ -28,22 +28,24 @@ WS.analise = (function () {
     const loc = C.localEstado, pL = k => nf(C.pctLocal(loc, k), 1) + '%';
     const SERV = [['organismo_politicas_mulheres', 'organismo de políticas para mulheres'], ['centro_referencia', 'centro de referência'], ['casa_abrigo', 'casa-abrigo ou acolhimento'], ['delegacia_mulher', 'delegacia especializada']];
     const nServ = k => props.filter(p => p.rede[k] === 'Sim').length, nSemDado = k => props.filter(p => p.rede[k] === '-').length;
-    const servTxt = SERV.map(([k, n]) => nf(nServ(k)) + ' declaram ' + n).join('; ');
+    const servTxt = SERV.map(([k, n]) => '<b>' + nf(nServ(k)) + '</b> declaram ' + n).join('; ');
     const servOrd = [...SERV].sort((x, y) => nServ(y[0]) - nServ(x[0]));
-    const semDado = SERV.filter(([k]) => nSemDado(k)).map(([k, n]) => nf(nSemDado(k)) + ' sem dado sobre ' + n).join('; ');
+    const semDado = SERV.filter(([k]) => nSemDado(k)).map(([k, n]) => '<b>' + nf(nSemDado(k)) + '</b> sem dado sobre ' + n).join('; ');
+    const b = x => '<b>' + x + '</b>';
     const L = [
-      ['As notificações cresceram, com queda em 2020.', 'Foram ' + nf(st[0]) + ' casos em 2019, ' + nf(st[1]) + ' em 2020 e ' + nf(st[5]) + ' em 2024. A queda de 2020 coincide com a pandemia; uma explicação provável é o menor acesso aos serviços de saúde naquele ano. O aumento até 2024 pode refletir mais violência ou melhor notificação; o dado não separa as duas coisas.', 'O aumento acompanhou a ampliação dos serviços que notificam?'],
-      ['A violência física é a mais notificada, e a sexual foi a que mais cresceu.', 'A física aparece em ' + pct(C.casosEstado('fisica', 'all'), tot) + ' das notificações. A sexual passou de ' + nf(sx[0]) + ' casos em 2019 para ' + nf(sx[5]) + ' em 2024 (+' + nf(100 * (sx[5] / sx[0] - 1), 0) + '%).', 'Os serviços de atendimento à violência sexual acompanharam esse crescimento?'],
-      ['Mulheres jovens e meninas concentram os casos.', 'De 20 a 39 anos: ' + pct(fx[5] + fx[6], tot) + ' dos casos. De 10 a 19 anos: ' + pct(fx[3] + fx[4], tot) + '. Crianças de até 9 anos: ' + pct(fx[0] + fx[1] + fx[2], tot) + '. Políticas precisam alcançar a escola e a atenção à criança e ao adolescente, não só a mulher adulta.', 'A escola e a rede de proteção à criança e ao adolescente participam da notificação?'],
-      ['Os casos se concentram nas cidades maiores, mas não só pelo tamanho.', esc(jp.nome) + ' tem ' + pct(C.casos(jp, 'total', 'all'), tot) + ' dos casos e ' + pct(jp.pop, C.POP) + ' das mulheres do estado, ou seja, notifica proporcionalmente mais (' + nf(C.oe(jp, 'total', 'all'), 2) + '× o esperado). Os 5 municípios com mais casos somam ' + pct(comMais.slice(0, 5).reduce((s, p) => s + C.casos(p, 'total', 'all'), 0), tot) + '.', 'A concentração reflete a rede da capital atendendo mulheres de outros lugares?'],
-      ['Há municípios que notificam muito menos que o estado.', 'Entre os ' + grandes.length + ' municípios com pelo menos 10 casos, ' + muitoAbaixo.length + ' notificam menos da metade do esperado; o caso mais forte é ' + esc(muitoAbaixo[0].nome) + ' (' + nf(C.oe(muitoAbaixo[0], 'total', 'all'), 2) + '). Isso não prova que lá há menos violência: pode indicar dificuldade de acesso ou de notificação. É onde vale o gestor investigar primeiro.', 'O que dificulta a notificação nesses municípios: acesso, formação das equipes ou medo de expor a mulher?'],
-      ['E há municípios que notificam muito mais.', muitoAcima.length + ' municípios notificam o dobro ou mais do esperado. Podem ter mais violência, ou uma rede que identifica e registra melhor os casos. Vale conhecer o que funciona neles.', 'O que esses municípios fazem que pode ser levado a outros?'],
-      ['Em ' + nf(poucos) + ' municípios os números são pequenos demais para comparar.', 'Com menos de 10 casos em 6 anos, a taxa e o observado ÷ esperado mudam muito com um único caso. Nesses lugares, olhe a contagem de casos e a regularidade ao longo dos anos.', 'Faz sentido acompanhar esses municípios juntos, por região de saúde?'],
-      ['Em taxa, a faixa etária mais atingida é ' + rotF(iMaxTx) + '.', 'São ' + nf(C.taxaFaixaEstado(iMaxTx), 1) + ' casos por ano para cada 100 mil meninas ou mulheres dessa idade, a maior taxa entre as faixas. Em número de casos, a maior é ' + rotF(iMaxCasos) + ' (' + nf(fx[iMaxCasos]) + ' casos; taxa ' + nf(C.taxaFaixaEstado(iMaxCasos), 1) + ' por 100 mil/ano).', 'Que serviços chegam a essa faixa etária hoje: escola, conselho tutelar, atenção básica?'],
-      ['A maior parte das mulheres foi atendida na própria região de saúde.', pL(0) + ' das notificações foram feitas na região de saúde onde a mulher mora, ' + pL(1) + ' em outra região da Paraíba e ' + pL(2) + ' fora do estado (' + nf(loc[2]) + ' casos).', 'Nas regiões de onde mais mulheres saem para ser atendidas, falta serviço local ou há uma referência regional combinada?'],
-      ['Na MUNIC 2023, o serviço mais declarado é ' + servOrd[0][1] + '; o menos declarado, ' + servOrd[servOrd.length - 1][1] + '.', 'Na MUNIC 2023, dos ' + nf(props.length) + ' municípios, ' + servTxt + '.' + (semDado ? ' Há ' + semDado + '.' : '') + ' É o que a prefeitura declarou, não uma contagem oficial dos serviços.', 'Onde não há serviço declarado, para onde a mulher é encaminhada?']
+      ['As notificações cresceram de 2019 a 2024, com queda em 2020.', 'Foram ' + b(nf(st[0])) + ' casos em 2019, ' + b(nf(st[1])) + ' em 2020 e ' + b(nf(st[5])) + ' em 2024. A queda de 2020 coincide com a pandemia. O dado não separa aumento da violência de aumento da notificação.', 'O aumento acompanhou a abertura de serviços que notificam?'],
+      ['A violência física é a mais notificada; a sexual foi a que mais cresceu.', 'A física aparece em ' + b(pct(C.casosEstado('fisica', 'all'), tot)) + ' das notificações. A sexual passou de ' + b(nf(sx[0])) + ' casos em 2019 para ' + b(nf(sx[5])) + ' em 2024 (' + b('+' + nf(100 * (sx[5] / sx[0] - 1), 0) + '%') + ').', 'O atendimento à violência sexual acompanhou esse crescimento?'],
+      ['Meninas e mulheres jovens concentram os casos.', 'De 20 a 39 anos: ' + b(pct(fx[5] + fx[6], tot)) + ' dos casos. De 10 a 19 anos: ' + b(pct(fx[3] + fx[4], tot)) + '. Até 9 anos: ' + b(pct(fx[0] + fx[1] + fx[2], tot)) + '.', 'A escola e a rede de proteção à criança e ao adolescente participam da notificação?'],
+      ['Os casos se concentram nos municípios maiores.', esc(jp.nome) + ' tem ' + b(pct(C.casos(jp, 'total', 'all'), tot)) + ' dos casos e ' + b(pct(jp.pop, C.POP)) + ' das mulheres do estado (observado ÷ esperado: ' + b(nf(C.oe(jp, 'total', 'all'), 2)) + '). Os 5 municípios com mais casos somam ' + b(pct(comMais.slice(0, 5).reduce((s, p) => s + C.casos(p, 'total', 'all'), 0), tot)) + '.', 'A rede da capital atende mulheres de outros municípios?'],
+      [nf(muitoAbaixo.length) + ' municípios notificam menos da metade do esperado.', 'São ' + b(nf(muitoAbaixo.length)) + ' entre os ' + b(nf(grandes.length)) + ' municípios com pelo menos 10 casos. O menor valor é o de ' + esc(muitoAbaixo[0].nome) + ' (' + b(nf(C.oe(muitoAbaixo[0], 'total', 'all'), 2)) + ').', 'O que dificulta a notificação nesses municípios: acesso, formação das equipes ou receio de expor a mulher?'],
+      [nf(muitoAcima.length) + ' municípios notificam o dobro ou mais do esperado.', 'Entre os ' + b(nf(grandes.length)) + ' municípios com pelo menos 10 casos, ' + b(nf(muitoAcima.length)) + ' têm observado ÷ esperado de 2 ou mais. Podem ter mais violência ou uma rede que registra melhor.', 'O que esses municípios fazem que pode ser levado a outros?'],
+      [nf(poucos) + ' municípios têm menos de 10 casos em 6 anos.', 'Nesses ' + b(nf(poucos)) + ' municípios, um único caso muda muito a taxa e o observado ÷ esperado. O painel marca esses valores com *.', 'Faz sentido acompanhá-los em conjunto, por região de saúde?'],
+      ['Em taxa, a faixa etária mais atingida é ' + rotF(iMaxTx) + '.', 'São ' + b(nf(C.taxaFaixaEstado(iMaxTx), 1)) + ' casos por ano a cada 100 mil meninas dessa idade, a maior taxa entre as faixas. Em número de casos, a maior é ' + rotF(iMaxCasos) + ' (' + b(nf(fx[iMaxCasos])) + ' casos; ' + b(nf(C.taxaFaixaEstado(iMaxCasos), 1)) + ' por 100 mil/ano).', 'Que serviços chegam hoje a essa faixa etária: escola, conselho tutelar, atenção básica?'],
+      ['A maior parte das notificações foi feita na própria região de saúde.', b(pL(0)) + ' das notificações foram feitas na região de saúde onde a mulher mora, ' + b(pL(1)) + ' em outra região da Paraíba e ' + b(pL(2)) + ' fora do estado (' + b(nf(loc[2])) + ' casos).', 'Nas regiões de onde mais mulheres saem para ser atendidas, falta serviço local ou há referência regional pactuada?'],
+      ['Na MUNIC 2023, o serviço mais declarado é ' + servOrd[0][1] + '; o menos declarado, ' + servOrd[servOrd.length - 1][1] + '.', 'Dos ' + b(nf(props.length)) + ' municípios, ' + servTxt + '.' + (semDado ? ' Há ' + semDado + '.' : '') + ' São declarações das prefeituras, não um cadastro oficial.', 'Onde não há serviço declarado, para onde a mulher é encaminhada?']
     ];
-    $('concl').innerHTML = L.map(c => '<li><b>' + c[0] + '</b><span class="ev">' + c[1] + '</span>' + (c[2] ? '<span class="perg">Pergunta para a gestão: ' + c[2] + '</span>' : '') + '</li>').join('');
+    // cada resultado: um parágrafo (frase-título + evidência, números em negrito) e a pergunta para a gestão em texto normal
+    $('concl').innerHTML = L.map(c => '<li><p>' + c[0] + ' ' + c[1] + '</p>' + (c[2] ? '<p class="perg">Para a gestão: ' + c[2] + '</p>' : '') + '</li>').join('');
     return { st, sx, serie, tot };
   }
 
@@ -82,11 +84,11 @@ WS.analise = (function () {
   function faixaAnalise() {
     document.querySelectorAll('#fxAnalise [data-fxa]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.fxa === modoFx)));
     if (modoFx === 'casos') {
-      $('fxdesc').textContent = 'Paraíba, soma de 2019 a 2024, todos os tipos.';
+      $('fxdesc').textContent = 'Paraíba, 2019 a 2024, todos os tipos.';
       barras($('g-faixa'), C.FX.map((f, i) => [C.rotFx(f), C.faixaEstado[i]]), css('--s1'), p => ' casos (' + nf(100 * p[1] / N.tot, 1) + '%)');
     } else {
       const te = C.taxaEstado('total', 'all'), ign = C.faixaEstado[C.N_FX_TAXA];
-      $('fxdesc').textContent = 'Paraíba, 2019 a 2024: casos por ano para cada 100 mil mulheres da faixa (Censo 2022). Linha tracejada: taxa geral do estado (' + nf(te, 1) + '). A faixa "Ignorada" (' + nf(ign) + ' casos) não tem taxa.';
+      $('fxdesc').textContent = 'Paraíba, 2019 a 2024. Casos por ano a cada 100 mil mulheres da faixa (Censo 2022). Linha tracejada: taxa geral do estado (' + nf(te, 1) + '). A faixa "Ignorada" (' + nf(ign) + ' casos) não tem taxa.';
       barras($('g-faixa'), C.FX.slice(0, C.N_FX_TAXA).map((f, i) => [C.rotFx(f), C.taxaFaixaEstado(i)]), css('--s1'),
         (p, i) => ' por 100 mil/ano' + (C.faixaEstado[i] < 10 ? ' *' : '') + ' · ' + nf(C.faixaEstado[i]) + ' casos', { v: te, rot: 'estado: ' + nf(te, 1) + ' por 100 mil/ano' }, ' por 100 mil/ano');
     }
