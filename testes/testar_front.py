@@ -187,6 +187,29 @@ with sync_playwright() as pw:
         n_inst = sum(1 for (c, per, t), v in REF.items() if per == "all" and t == "total" and v["casos"] < 10)
         check(hach["fill"] == n_inst and hach["padroes"] >= 4 and hach["leg"] == str(n_inst) and hach["cont"] == TOTAL_MUNICIPIOS,
               f"{modo}: hachura nos {hach['fill']} municípios com menos de 10 casos (view: {n_inst}), item na legenda e contagem por classe somando 223")
+        # ---- Revisão visual: paletas ColorBrewer, classes fixas, hachura opcional, legenda ----
+        YLORRD = {"#ffffb2", "#fecc5c", "#fd8d3c", "#f03b20", "#bd0026"}; PUOR = {"#5e3c99", "#b2abd2", "#f7f7f7", "#fdb863", "#e66101"}
+        CORES = """(() => { const f = [...document.querySelectorAll('path.leaflet-interactive[data-instavel]')].map(p => p.getAttribute('fill'));
+            const pad = [...document.querySelectorAll('pattern[id^=hach-] rect')].map(r => r.getAttribute('fill'));
+            return { cores: [...new Set(f.filter(x => !x.startsWith('url')).concat(pad))].map(x => x.toLowerCase()), hist: document.querySelectorAll('#leg .hist').length,
+                     rot: [...document.querySelectorAll('#leg .row[data-n] .rot')].map(e => e.textContent.replace(' ◆', '').trim()) }; })()"""
+        v_taxa = pg.evaluate(CORES)
+        pg.select_option("#per", "2024"); pg.wait_for_timeout(300)
+        v_2024 = pg.evaluate(CORES)
+        pg.select_option("#tipo", "sexual"); pg.wait_for_timeout(300)
+        v_sex = pg.evaluate(CORES)
+        pg.select_option("#tipo", "total"); pg.select_option("#per", "all"); pg.select_option("#ind", "oe"); pg.wait_for_timeout(300)
+        v_oe = pg.evaluate(CORES)
+        check(set(v_taxa["cores"]) <= YLORRD and v_taxa["rot"] == v_2024["rot"] == ["menos de 40", "40 a 60", "60 a 90", "90 a 140", "140 ou mais"] and v_sex["rot"] != v_taxa["rot"]
+              and v_taxa["hist"] == 0 and set(v_oe["cores"]) <= PUOR and v_oe["hist"] == 5 and v_oe["rot"] == ["menos de 0,5", "0,5 a 0,8", "0,8 a 1,25", "1,25 a 2", "2 ou mais"],
+              f"{modo}: taxa em YlOrRd com classes fixas iguais em 2019–2024 e em 2024 ({v_taxa['rot']}); observado ÷ esperado em PuOr com histograma; rótulos curtos")
+        pg.uncheck("#destacarPoucos"); pg.wait_for_timeout(200)
+        sem_hach = pg.evaluate("[...document.querySelectorAll('path.leaflet-interactive')].filter(p => (p.getAttribute('fill') || '').startsWith('url(#hach-')).length")
+        sem_item = pg.locator("#leg .row.inst").count()
+        pg.check("#destacarPoucos"); pg.wait_for_timeout(200)
+        check(sem_hach == 0 and sem_item == 0 and pg.evaluate("[...document.querySelectorAll('path.leaflet-interactive')].filter(p => (p.getAttribute('fill') || '').startsWith('url(#hach-')).length") == n_inst,
+              f"{modo}: opção 'Destacar municípios com poucos casos' liga e desliga a hachura e o item da legenda")
+        pg.select_option("#ind", "taxa"); pg.wait_for_timeout(300)
         # Casos: símbolos proporcionais (área ∝ casos, raio pela raiz quadrada; maiores atrás) sobre base cinza
         pg.select_option("#ind", "casos"); pg.wait_for_timeout(400)
         sim = pg.evaluate("PAINEL.simbolos()")
@@ -202,6 +225,9 @@ with sync_playwright() as pw:
               f"{modo}: casos em símbolos proporcionais (área de João Pessoa, Campina Grande e Sousa ∝ casos; maiores atrás; base cinza; 3 círculos na legenda)")
         if modo == "http":
             pg.screenshot(path=str(CAP / "mapa_simbolos_casos.png"))
+        sem_ponto = pg.evaluate("[...document.querySelectorAll('.rotulo')].every(e => getComputedStyle(e, '::before').display === 'none')")
+        check(sem_ponto and pg.evaluate("getComputedStyle(document.querySelector('path.leaflet-interactive[data-instavel]')).fill !== ''"),
+              f"{modo}: mapa de casos com rótulos das cidades sem os pontos (só texto com halo)")
         # Baixar mapa (PNG): imagem com título, legenda e fonte, nos dois modos de abertura
         with pg.expect_download(timeout=20000) as dl:
             pg.click("#baixarPng")
@@ -216,6 +242,9 @@ with sync_playwright() as pw:
         rot = pg.evaluate("""(() => { const v = [...document.querySelectorAll('.rotulo')].filter(e => e.style.visibility !== 'hidden').map(e => [e.textContent, e.firstChild.getBoundingClientRect()]);
             const bate = v.some(([, a], i) => v.some(([, b], j) => i < j && !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom)));
             return { nomes: v.map(x => x[0]), bate }; })()""")
+        dentro_mapa = pg.evaluate("""(() => { const m = document.getElementById('map').getBoundingClientRect();
+            return [...document.querySelectorAll('.rotulo')].filter(e => e.style.visibility !== 'hidden').every(e => { const r = e.firstChild.getBoundingClientRect(); return r.left >= m.left && r.right <= m.right && r.top >= m.top && r.bottom <= m.bottom; }); })()""")
+        check(dentro_mapa, f"{modo}: nenhum rótulo de cidade sai da área do mapa")
         check(len(rot["nomes"]) >= 5 and "João Pessoa" in rot["nomes"] and not rot["bate"] and pg.locator(".leaflet-control-scale-line").count() == 1 and "Fonte:" in pg.inner_text(".fonte-mapa"),
               f"{modo}: rótulos das cidades-polo sem sobreposição ({rot['nomes']}), barra de escala e fonte no mapa")
         # Enquadramento: com a ficha aberta, o estado inteiro fica na área livre, ao lado da ficha
@@ -224,6 +253,10 @@ with sync_playwright() as pw:
         borda_ficha = pg.evaluate("document.getElementById('painel').getBoundingClientRect().left - document.getElementById('map').getBoundingClientRect().left")
         check(enq["x0"] >= 0 and enq["x1"] <= borda_ficha and enq["y0"] >= 0 and enq["y1"] <= enq["h"],
               f"{modo}: com a ficha aberta o estado inteiro aparece ao lado dela (estado até x={enq['x1']:.0f}; ficha começa em {borda_ficha:.0f})")
+        leg_ok = pg.evaluate("""(() => { const l = document.getElementById('leg').getBoundingClientRect(), f = document.getElementById('painel').getBoundingClientRect();
+            return l.width > 0 && l.height > 0 && (l.right <= f.left || l.left >= f.right); })()""")
+        foco = pg.evaluate("[document.activeElement.tagName, getComputedStyle(document.activeElement).outlineStyle]")
+        check(leg_ok and foco == ["H2", "none"], f"{modo}: com a ficha aberta a legenda continua visível ao lado; título da ficha com foco e sem moldura ({foco})")
         if modo == "http":
             pg.screenshot(path=str(CAP / "mapa_ficha_enquadrada.png"))
         pg.evaluate("location.hash = '#mapa'"); pg.wait_for_timeout(400)
@@ -376,6 +409,15 @@ with sync_playwright() as pw:
               and all(f"{n} declaram" in concl for n in n_serv.values())
               and pg.locator("#concl li").count() == pg.locator("#concl li .perg").count() >= 10,
               f"{modo}: leituras prontas dos contextos (faixa {rot_max}, local, MUNIC) calculadas, cada uma com pergunta para a gestão")
+        graf = pg.evaluate("""(() => { const ac = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim().toLowerCase();
+            const linhas = [...document.querySelectorAll('#g-serie polyline')], dl = linhas.filter(l => l.dataset.destaque);
+            const rot = [...document.querySelectorAll('#g-serie text.val.destaque')].map(t => t.textContent);
+            const tipo = [...document.querySelectorAll('#g-tipo rect[data-destaque]')].map(r => r.dataset.t);
+            const antigas = ['#2a78d6', '#eb6834', '#1baf7a', '#e87ba4', '#3987e5', '#d95926', '#199e70', '#d55181'];
+            const usadas = [...document.querySelectorAll('#v-analise svg [fill], #v-analise svg [stroke]')].flatMap(e => [e.getAttribute('fill'), e.getAttribute('stroke')]).filter(Boolean).map(x => x.toLowerCase());
+            return { n: linhas.length, dest: dl.length, cor: dl[0] && dl[0].getAttribute('stroke').toLowerCase(), ac, rot, tipo, antigas: usadas.filter(x => antigas.includes(x)).length }; })()""")
+        check(graf["n"] == 4 and graf["dest"] == 1 and graf["cor"] == graf["ac"] and graf["rot"] == ["Sexual"] and len(graf["tipo"]) == 1 and graf["tipo"][0].startswith("Sexual") and graf["antigas"] == 0,
+              f"{modo}: gráficos em cinza com uma série destacada no azul-petróleo (Sexual) e sem as 4 cores genéricas")
         frase = pg.inner_text("#localfrase")
         esperada = (f"{fmt(LOCEST[1][1], 1)}% foram atendidas na própria região de saúde, {fmt(LOCEST[2][1], 1)}% em outra região da Paraíba "
                     f"e {fmt(LOCEST[3][1], 1)}% fora do estado ({LOCEST[3][0]} casos).")
@@ -495,6 +537,10 @@ with sync_playwright() as pw:
           f"tour: 6 passos na ordem combinada, setas e Esc (foco volta ao botão) {[x[1] for x in passos]}")
     sem_travessao = pg.evaluate("!(document.querySelector('main').textContent + document.getElementById('sobre').textContent + document.getElementById('tour').textContent + document.querySelector('header').textContent).includes('—')")
     check(sem_travessao, "textos das 3 telas, do Sobre e do Tour sem travessão (—)")
+    topo = pg.evaluate("[...document.querySelectorAll('header .acoes .btn')].map(b => getComputedStyle(b).borderTopStyle + '/' + getComputedStyle(b).backgroundColor)")
+    estado = pg.evaluate("[document.getElementById('verEstado').getAttribute('aria-label'), document.getElementById('verEstado').getBoundingClientRect().width]")
+    check(all(t.startswith("none/") for t in topo) and estado[0] == "Ver estado inteiro" and estado[1] <= 46,
+          f"topo com Sobre, Tour e Copiar link como links de texto; 'Ver estado inteiro' como botão de ícone com rótulo acessível ({estado})")
     ctx.close()
     # chegar por link de ficha não abre o Sobre
     ctx = ctx_puro(viewport={"width": 1366, "height": 768}); pg = ctx.new_page()
@@ -540,7 +586,24 @@ with sync_playwright() as pw:
         for tema in ["light", "dark"]:
             cel = nome == "celular"
             ctx = nav.new_context(viewport={"width": w, "height": h}, color_scheme=tema, device_scale_factor=2 if cel else 1, **movel(cel))
+            rot_base = f"{nome}_{'claro' if tema == 'light' else 'escuro'}"
             pg = ctx.new_page(); erros_t = []; ouvir(pg, erros_t)
+            if nome in ("1366", "celular"):
+                abrir(pg, MODOS["http"]); pg.wait_for_timeout(600)
+                fundo = pg.evaluate("""(() => { const lum = c => { const v = c.match(/[\\d.]+/g).slice(0, 3).map(Number).map(x => x / 255).map(x => x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4);
+                    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+                    return [lum(getComputedStyle(document.querySelector('.leaflet-container')).backgroundColor), lum(getComputedStyle(document.getElementById('leg')).backgroundColor)]; })()""")
+                escuro = tema == "dark"
+                check(all((x < 0.1) if escuro else (x > 0.6) for x in fundo), f"{rot_base}: fundo do mapa e da legenda seguem o tema ({[round(x, 2) for x in fundo]})")
+                if cel:
+                    fechada = pg.evaluate("getComputedStyle(document.querySelector('#leg .leg-corpo')).display")
+                    pg.click("#leg .leg-tog"); pg.wait_for_timeout(200)
+                    aberta = pg.evaluate("getComputedStyle(document.querySelector('#leg .leg-corpo')).display")
+                    check(fechada == "none" and aberta != "none", f"{rot_base}: legenda recolhível no celular ({fechada} → {aberta})")
+                for ind in ["taxa", "oe", "casos"]:
+                    pg.select_option("#ind", ind); pg.wait_for_timeout(400)
+                    pg.screenshot(path=str(CAP / f"{rot_base}_mapa_{ind}.png"))
+                pg.select_option("#ind", "taxa")
             abrir(pg, MODOS["http"] + "#mapa-" + SOUSA); pg.wait_for_timeout(800)
             rot = f"{nome}_{'claro' if tema == 'light' else 'escuro'}"
             sem_rol = pg.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")

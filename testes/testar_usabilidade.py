@@ -220,11 +220,31 @@ with sync_playwright() as p:
                for pal in ["q", "d"]}
         acess[tema] = {"contraste": c, "daltonismo_dE_min": {"sequencial": dal["q"], "divergente": dal["d"]}}
         check(min(c.values()) >= 4.5, f"contraste AA ({tema}): mínimo {min(c.values())}:1 (≥ 4,5)")
-        # hachura do valor instável: a linha (escura ou clara) que mais contrasta com a cor, como em mapa.js; contraste ≥ 3:1
-        linha = lambda cor: "#3a3833" if contraste(cor, "#3a3833") >= contraste(cor, "#f2f1ec") else "#f2f1ec"
-        hach = {f"--{p}{i}": round(contraste(tk[f"--{p}{i}"], linha(tk[f"--{p}{i}"])), 2) for p in "qd" for i in range(1, 6)}
+        # hachura do valor instável: lida do próprio mapa (cor da linha e opacidade de cada padrão), misturada à cor de fundo; contraste ≥ 3:1
+        def mistura(base, op, fundo):
+            return "#" + "".join(f"{round(op * int(base[i:i + 2], 16) + (1 - op) * int(fundo[i:i + 2], 16)):02x}" for i in (1, 3, 5))
+        hach = {}
+        for ind in ["taxa", "oe"]:
+            pg.select_option("#ind", ind); pg.wait_for_timeout(300)
+            for fundo, base, op in pg.evaluate("[...document.querySelectorAll('pattern[id^=hach-]')].map(p => [p.querySelector('rect').getAttribute('fill'), p.querySelector('line').getAttribute('stroke'), +p.querySelector('line').getAttribute('stroke-opacity')])"):
+                hach[f"{ind} {fundo}"] = {"linha": base, "opacidade": op, "contraste": round(contraste(mistura(base, op, fundo), fundo), 2)}
+        pg.select_option("#ind", "taxa")
         acess[tema]["hachura"] = hach
-        check(min(hach.values()) >= 3, f"hachura ({tema}): contraste mínimo linha × cor {min(hach.values())}:1 (≥ 3)")
+        check(len(hach) == 10 and min(v["contraste"] for v in hach.values()) >= 3,
+              f"hachura ({tema}): contraste mínimo linha × cor {min(v['contraste'] for v in hach.values())}:1 (≥ 3), opacidade de {min(v['opacidade'] for v in hach.values())} a {max(v['opacidade'] for v in hach.values())}")
+        # escalas: ordem de claridade preservada (normal, protanopia, deuteranopia, tritanopia e tons de cinza) e diferença mínima entre vizinhas
+        def L_(cor, m=None):
+            v = [lin(x) for x in rgb(cor)]
+            if m: v = [min(1, max(0, sum(m[i][j] * v[j] for j in range(3)))) for i in range(3)]
+            return lab(v)[0]
+        ordem = {}
+        for nome_pal, pal in [("sequencial", [tk[f"--q{i}"] for i in range(1, 6)]), ("divergente", [tk[f"--d{i}"] for i in range(1, 6)])]:
+            for vis, m in [("normal", None)] + list(MACHADO.items()) + [("cinza", None)]:
+                Ls = [round(L_(c, m), 1) for c in pal]   # em tons de cinza vale a claridade L* (a impressão preserva a luminância)
+                ok_ordem = all(Ls[i] > Ls[i + 1] for i in range(4)) if nome_pal == "sequencial" else (Ls[0] < Ls[1] < Ls[2] > Ls[3] > Ls[4])
+                ordem[f"{nome_pal} {vis}"] = {"L*": Ls, "ordem_ok": ok_ordem, "menor_passo_L": round(min(abs(Ls[i] - Ls[i + 1]) for i in range(4)), 1)}
+        acess[tema]["ordem_claridade"] = ordem
+        check(all(v["ordem_ok"] for v in ordem.values()), f"escalas ({tema}): ordem de claridade preservada em normal, protanopia, deuteranopia, tritanopia e tons de cinza")
         check(min(min(v.values()) for v in dal.values()) >= 10, f"daltonismo ({tema}): ΔE mínimo entre classes vizinhas {min(min(v.values()) for v in dal.values())} (≥ 10)")
         ctx.close()
 
