@@ -56,24 +56,27 @@ WS.analise = (function () {
     let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="Casos por ano e tipo: ' + series.map(se => se.n + ' ' + se.v.map(v => nf(v)).join(', ')).join('; ') + '">';
     for (let g = 0; g <= mx; g += 500) s += '<line x1="' + m.l + '" x2="' + (m.l + w) + '" y1="' + y(g) + '" y2="' + y(g) + '" stroke="var(--line)"/><text x="' + (m.l - 6) + '" y="' + (y(g) + 4) + '" text-anchor="end">' + nf(g) + '</text>';
     C.ANOS.forEach((a, i) => { s += '<text x="' + x(i) + '" y="' + (H - 8) + '" text-anchor="middle">' + a + '</text>'; });
-    series.forEach(se => {
-      s += '<polyline fill="none" stroke="' + se.c + '" stroke-width="2" points="' + se.v.map((v, i) => x(i) + ',' + y(v)).join(' ') + '"/>';
-      se.v.forEach((v, i) => { s += '<circle cx="' + x(i) + '" cy="' + y(v) + '" r="4" fill="' + se.c + '" stroke="var(--surface)" stroke-width="2"/>'; });
-      s += '<text x="' + (x(5) + 8) + '" y="' + (y(se.v[5]) + 4) + '" class="val">' + se.n + '</text>';
+    // cinza neutro em todas as séries; a comentada no texto (destaque) em azul-petróleo, desenhada por cima
+    [...series.filter(se => !se.destaque), ...series.filter(se => se.destaque)].forEach(se => {
+      const c = se.destaque ? css('--accent') : css('--barra'), lw = se.destaque ? 2.5 : 1.5;
+      s += '<polyline fill="none" stroke="' + c + '" stroke-width="' + lw + '" points="' + se.v.map((v, i) => x(i) + ',' + y(v)).join(' ') + '"' + (se.destaque ? ' data-destaque="1"' : '') + '/>';
+      se.v.forEach((v, i) => { s += '<circle cx="' + x(i) + '" cy="' + y(v) + '" r="' + (se.destaque ? 3.5 : 2.5) + '" fill="' + c + '" stroke="var(--surface)" stroke-width="1.5"/>'; });
+      s += '<text x="' + (x(5) + 8) + '" y="' + (y(se.v[5]) + 4) + '" class="val' + (se.destaque ? ' destaque' : '') + '"' + (se.destaque ? ' style="fill:' + c + '"' : '') + '>' + se.n + '</text>';
     });
     C.ANOS.forEach((a, i) => { s += '<rect x="' + (x(i) - w / 10) + '" y="' + m.t + '" width="' + (w / 5) + '" height="' + h + '" fill="transparent" data-i="' + i + '"/>'; });
     el.innerHTML = s + '</svg>';
     el.querySelectorAll('rect[data-i]').forEach(r => { r.addEventListener('mousemove', e => { const i = +r.dataset.i; tipShow(e, C.ANOS[i] + ': ' + series.map(se => se.n + ' ' + nf(se.v[i])).join(' · ')); }); r.addEventListener('mouseleave', tipHide); });
   }
-  function barras(el, pares, cor, extra, ref, unidade) {   // ref = { v, rot }: linha de referência (ex.: taxa geral do estado)
+  function barras(el, pares, extra, ref, unidade, destaque) {   // ref = { v, rot }: linha de referência; destaque = índice da barra comentada
     const W = 600, lh = 26, m = { l: 110, r: 250 }, H = pares.length * lh + 8 + (ref ? 18 : 0), w = W - m.l - m.r, mx = Math.max(...pares.map(p => p[1]), ref ? ref.v : 0);
     const dec = unidade ? 1 : 0, un = unidade || ' casos';
     let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" role="img" aria-label="' + pares.map(p => p[0] + ' ' + nf(p[1], dec)).join('; ') + (ref ? '; ' + ref.rot : '') + '">';
-    if (ref) { const x = m.l + ref.v / mx * w, yb = 4 + pares.length * lh; s += '<line x1="' + x + '" x2="' + x + '" y1="2" y2="' + yb + '" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="4 3"/><text x="' + x + '" y="' + (yb + 13) + '" text-anchor="middle" class="val">' + ref.rot + '</text>'; }
+    if (ref) { const x = m.l + ref.v / mx * w, yb = 4 + pares.length * lh; s += '<line x1="' + x + '" x2="' + x + '" y1="2" y2="' + yb + '" stroke="var(--ink-3)" stroke-width="1.2" stroke-dasharray="4 3"/><text x="' + x + '" y="' + (yb + 13) + '" text-anchor="middle" class="val">' + ref.rot + '</text>'; }
     const halo = ref ? ' style="paint-order:stroke;stroke:var(--surface);stroke-width:4px"' : '';   // número legível sobre a linha de referência
     pares.forEach((p, i) => {
       const y = 4 + i * lh, bw = Math.max(2, p[1] / mx * w);
-      s += '<text x="' + (m.l - 8) + '" y="' + (y + 15) + '" text-anchor="end">' + p[0] + '</text><rect x="' + m.l + '" y="' + (y + 4) + '" width="' + bw + '" height="16" rx="4" fill="' + cor + '" data-t="' + p[0] + ': ' + nf(p[1], dec) + un + '"/><text x="' + (m.l + bw + 6) + '" y="' + (y + 16) + '" class="val"' + halo + '>' + nf(p[1], dec) + (extra ? extra(p, i) : '') + '</text>';
+      const d = i === destaque, cor = d ? css('--accent') : css('--barra');
+      s += '<text x="' + (m.l - 8) + '" y="' + (y + 15) + '" text-anchor="end">' + p[0] + '</text><rect x="' + m.l + '" y="' + (y + 4) + '" width="' + bw + '" height="16" rx="1" fill="' + cor + '"' + (d ? ' data-destaque="1"' : '') + ' data-t="' + p[0] + ': ' + nf(p[1], dec) + un + '"/><text x="' + (m.l + bw + 6) + '" y="' + (y + 16) + '" class="val' + (d ? ' destaque' : '') + '"' + halo + '>' + nf(p[1], dec) + (extra ? extra(p, i) : '') + '</text>';
     });
 
     el.innerHTML = s + '</svg>';
@@ -85,26 +88,29 @@ WS.analise = (function () {
     document.querySelectorAll('#fxAnalise [data-fxa]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.fxa === modoFx)));
     if (modoFx === 'casos') {
       $('fxdesc').textContent = 'Paraíba, 2019 a 2024, todos os tipos.';
-      barras($('g-faixa'), C.FX.map((f, i) => [C.rotFx(f), C.faixaEstado[i]]), css('--s1'), p => ' casos (' + nf(100 * p[1] / N.tot, 1) + '%)');
+      const fxc = C.faixaEstado.slice(0, C.N_FX_TAXA), iMax = fxc.indexOf(Math.max(...fxc));   // destaque: a faixa com mais casos (comentada nos resultados)
+      barras($('g-faixa'), C.FX.map((f, i) => [C.rotFx(f), C.faixaEstado[i]]), p => ' casos (' + nf(100 * p[1] / N.tot, 1) + '%)', null, null, iMax);
     } else {
       const te = C.taxaEstado('total', 'all'), ign = C.faixaEstado[C.N_FX_TAXA];
       $('fxdesc').textContent = 'Paraíba, 2019 a 2024. Casos por ano a cada 100 mil mulheres da faixa (Censo 2022). Linha tracejada: taxa geral do estado (' + nf(te, 1) + '). A faixa "Ignorada" (' + nf(ign) + ' casos) não tem taxa.';
-      barras($('g-faixa'), C.FX.slice(0, C.N_FX_TAXA).map((f, i) => [C.rotFx(f), C.taxaFaixaEstado(i)]), css('--s1'),
-        (p, i) => ' por 100 mil/ano' + (C.faixaEstado[i] < 10 ? ' *' : '') + ' · ' + nf(C.faixaEstado[i]) + ' casos', { v: te, rot: 'estado: ' + nf(te, 1) + ' por 100 mil/ano' }, ' por 100 mil/ano');
+      const tx = C.FX.slice(0, C.N_FX_TAXA).map((f, i) => C.taxaFaixaEstado(i)), iMaxTx = tx.indexOf(Math.max(...tx));   // destaque: a faixa de maior taxa
+      barras($('g-faixa'), C.FX.slice(0, C.N_FX_TAXA).map((f, i) => [C.rotFx(f), tx[i]]),
+        (p, i) => ' por 100 mil/ano' + (C.faixaEstado[i] < 10 ? ' *' : '') + ' · ' + nf(C.faixaEstado[i]) + ' casos', { v: te, rot: 'estado: ' + nf(te, 1) + ' por 100 mil/ano' }, ' por 100 mil/ano', iMaxTx);
     }
   }
   // Onde as mulheres foram atendidas (estado): frase-resumo e barra calculadas dos dados
   function localAnalise() {
     const v = C.localEstado, p = k => nf(C.pctLocal(v, k), 1) + '%';
     $('localfrase').textContent = p(0) + ' foram atendidas na própria região de saúde, ' + p(1) + ' em outra região da Paraíba e ' + p(2) + ' fora do estado (' + nf(v[2]) + ' casos).';
-    $('g-local').innerHTML = WS.util.barra100(C.LOCAIS.map((r, k) => ({ rot: r, n: v[k], cor: css(['--s1', '--s2', '--s4'][k]), k: k + 1 })));
+    $('g-local').innerHTML = WS.util.barra100(C.LOCAIS.map((r, k) => ({ rot: r, n: v[k], cor: css(['--accent', '--barra', '--barra-claro'][k]), k: k + 1 })));
   }
   function graficos() {
     localAnalise();
     const tipos = Object.keys(C.TIPOS);
-    linhas($('g-serie'), [{ n: 'Todos', v: N.st, c: css('--s1') }, { n: 'Física', v: N.serie('fisica'), c: css('--s2') }, { n: 'Psicológica', v: N.serie('psicologica'), c: css('--s3') }, { n: 'Sexual', v: N.sx, c: css('--s4') }]);
+    // destaque: a violência sexual, comentada nos resultados (a que mais cresceu)
+    linhas($('g-serie'), [{ n: 'Todos', v: N.st }, { n: 'Física', v: N.serie('fisica') }, { n: 'Psicológica', v: N.serie('psicologica') }, { n: 'Sexual', v: N.sx, destaque: true }]);
     faixaAnalise();
-    barras($('g-tipo'), tipos.map(k => [C.TIPOS[k], C.casosEstado(k, 'all')]), css('--s1'), (p, i) => ' casos · ' + nf(C.taxaEstado(tipos[i], 'all'), 1) + ' por 100 mil/ano');
+    barras($('g-tipo'), tipos.map(k => [C.TIPOS[k], C.casosEstado(k, 'all')]), (p, i) => ' casos · ' + nf(C.taxaEstado(tipos[i], 'all'), 1) + ' por 100 mil/ano', null, null, tipos.indexOf('sexual'));
   }
 
   /* tabela + CSV */
