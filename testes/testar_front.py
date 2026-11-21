@@ -178,6 +178,66 @@ with sync_playwright() as pw:
         if modo == "http":
             pg.screenshot(path=str(CAP / "ranking_10_menores.png"))
         pg.click("#rk-maiores")
+        # ---- Cartografia ----
+        # Valor instável: hachura nos municípios com menos de 10 casos (taxa e observado ÷ esperado), item na legenda
+        hach = pg.evaluate("""(() => ({ fill: [...document.querySelectorAll('path.leaflet-interactive')].filter(p => (p.getAttribute('fill') || '').startsWith('url(#hach-')).length,
+            padroes: document.querySelectorAll('pattern[id^=hach-]').length,
+            leg: (document.querySelector('#leg .row.inst .cont') || {}).textContent,
+            cont: [...document.querySelectorAll('#leg .row[data-n]')].reduce((s, r) => s + +r.dataset.n, 0) }))()""")
+        n_inst = sum(1 for (c, per, t), v in REF.items() if per == "all" and t == "total" and v["casos"] < 10)
+        check(hach["fill"] == n_inst and hach["padroes"] >= 4 and hach["leg"] == str(n_inst) and hach["cont"] == TOTAL_MUNICIPIOS,
+              f"{modo}: hachura nos {hach['fill']} municípios com menos de 10 casos (view: {n_inst}), item na legenda e contagem por classe somando 223")
+        # Casos: símbolos proporcionais (área ∝ casos, raio pela raiz quadrada; maiores atrás) sobre base cinza
+        pg.select_option("#ind", "casos"); pg.wait_for_timeout(400)
+        sim = pg.evaluate("PAINEL.simbolos()")
+        casos_all = {c: v["casos"] for (c, per, t), v in REF.items() if per == "all" and t == "total"}
+        vmax = max(casos_all.values()); CG = COD["Campina Grande"]
+        ok_area = sim["escala"] and sim["escala"]["vmax"] == vmax and all(
+            abs(sim["raios"][c] - sim["escala"]["rmax"] * (casos_all[c] / vmax) ** 0.5) < 1e-6 for c in (JP, CG, SOUSA))
+        razoes = [sim["raios"][c] ** 2 / casos_all[c] for c in (JP, CG, SOUSA)]   # área ∝ casos: r² ÷ casos constante
+        ordem = [casos_all[c] for c in sim["ordem"]]
+        base = pg.evaluate("new Set([...document.querySelectorAll('path.leaflet-interactive[data-instavel]')].map(p => p.getAttribute('fill'))).size")
+        check(ok_area and max(razoes) - min(razoes) < 1e-9 and ordem == sorted(ordem, reverse=True) and len(sim["ordem"]) == sum(1 for v in casos_all.values() if v > 0)
+              and base == 1 and pg.locator("#leg svg.circ circle").count() == 3,
+              f"{modo}: casos em símbolos proporcionais (área de João Pessoa, Campina Grande e Sousa ∝ casos; maiores atrás; base cinza; 3 círculos na legenda)")
+        if modo == "http":
+            pg.screenshot(path=str(CAP / "mapa_simbolos_casos.png"))
+        # Baixar mapa (PNG): imagem com título, legenda e fonte, nos dois modos de abertura
+        with pg.expect_download(timeout=20000) as dl:
+            pg.click("#baixarPng")
+        png = pathlib.Path(dl.value.path()).read_bytes()
+        larg_mapa = pg.evaluate("PAINEL.enquadramento().w")
+        check(png[:8] == b"\x89PNG\r\n\x1a\n" and int.from_bytes(png[16:20], "big") == (larg_mapa + 300) * 2 and len(png) > 50000 and dl.value.suggested_filename.startswith("mapa_casos_total"),
+              f"{modo}: Baixar mapa (PNG) gera a imagem do mapa atual ({len(png)} bytes, {dl.value.suggested_filename})")
+        if modo == "http":
+            (CAP / "mapa_exportado_casos.png").write_bytes(png)
+        pg.select_option("#ind", "taxa"); pg.wait_for_timeout(300)
+        # Rótulos das cidades-polo: visíveis e sem sobreposição
+        rot = pg.evaluate("""(() => { const v = [...document.querySelectorAll('.rotulo')].filter(e => e.style.visibility !== 'hidden').map(e => [e.textContent, e.firstChild.getBoundingClientRect()]);
+            const bate = v.some(([, a], i) => v.some(([, b], j) => i < j && !(a.right < b.left || a.left > b.right || a.bottom < b.top || a.top > b.bottom)));
+            return { nomes: v.map(x => x[0]), bate }; })()""")
+        check(len(rot["nomes"]) >= 5 and "João Pessoa" in rot["nomes"] and not rot["bate"] and pg.locator(".leaflet-control-scale-line").count() == 1 and "Fonte:" in pg.inner_text(".fonte-mapa"),
+              f"{modo}: rótulos das cidades-polo sem sobreposição ({rot['nomes']}), barra de escala e fonte no mapa")
+        # Enquadramento: com a ficha aberta, o estado inteiro fica na área livre, ao lado da ficha
+        pg.evaluate(f"location.hash = '#mapa-{SOUSA}'"); pg.wait_for_timeout(1100)
+        enq = pg.evaluate("PAINEL.enquadramento()")
+        borda_ficha = pg.evaluate("document.getElementById('painel').getBoundingClientRect().left - document.getElementById('map').getBoundingClientRect().left")
+        check(enq["x0"] >= 0 and enq["x1"] <= borda_ficha and enq["y0"] >= 0 and enq["y1"] <= enq["h"],
+              f"{modo}: com a ficha aberta o estado inteiro aparece ao lado dela (estado até x={enq['x1']:.0f}; ficha começa em {borda_ficha:.0f})")
+        if modo == "http":
+            pg.screenshot(path=str(CAP / "mapa_ficha_enquadrada.png"))
+        pg.evaluate("location.hash = '#mapa'"); pg.wait_for_timeout(400)
+        # Ver estado inteiro, limite de arraste e zoom
+        pg.evaluate("PAINEL.limitesMapa(); 0"); pg.click(".leaflet-control-zoom-in"); pg.click(".leaflet-control-zoom-in"); pg.wait_for_timeout(500)
+        pg.click("#verEstado"); pg.wait_for_timeout(700)
+        enq2 = pg.evaluate("PAINEL.enquadramento()")
+        check(enq2["x0"] >= 0 and enq2["x1"] <= enq2["w"] and enq2["y0"] >= 0 and enq2["y1"] <= enq2["h"], f"{modo}: botão Ver estado inteiro volta a mostrar a Paraíba toda")
+        # Limites das regiões: ligar/desligar
+        pg.uncheck("#verRegioes"); pg.wait_for_timeout(200)
+        desl = pg.evaluate("[...document.querySelectorAll('.leaflet-regioes-pane path')].every(p => p.getAttribute('stroke-opacity') === '0')")
+        pg.check("#verRegioes"); pg.wait_for_timeout(200)
+        lig = pg.evaluate("[...document.querySelectorAll('.leaflet-regioes-pane path')].filter(p => p.getAttribute('stroke-opacity') !== '0').length")
+        check(desl and lig == 16, f"{modo}: limites das 16 regiões de saúde ligam e desligam")
         # Região de saúde: recorta mapa, ranking e tabela; média da região na legenda = view
         RG = "25016"; dentro = {c for c, r in MUNREG.items() if r == RG}; rg = REGREF[(RG, "all", "total")]
         largura = "(() => { const b = PAINEL.limitesMapa(); return b.getEast() - b.getWest(); })()"
@@ -187,6 +247,8 @@ with sync_playwright() as pw:
         z1 = pg.evaluate(largura)
         if modo == "http":
             pg.screenshot(path=str(CAP / "regiao_saude_filtro.png"))
+        destaque = pg.evaluate("[...document.querySelectorAll('.leaflet-regioes-pane path')].filter(p => p.getAttribute('stroke-width') === '3.2').length")
+        check(destaque == 1, f"{modo}: limite da região escolhida destacado ({destaque})")
         pg.click("#verTabela"); pg.wait_for_timeout(300)
         lin_reg = pg.evaluate("[...document.querySelectorAll('#maptab tbody tr[data-c]')].map(tr => tr.dataset.c)")
         pg.click("#verTabela"); pg.wait_for_timeout(200)
@@ -483,6 +545,11 @@ with sync_playwright() as pw:
             rot = f"{nome}_{'claro' if tema == 'light' else 'escuro'}"
             sem_rol = pg.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
             secs = pg.evaluate("Object.fromEntries([...document.querySelectorAll('#painel details.sec')].map(d => [d.dataset.sec, d.open]))")
+            if cel:   # no celular a ficha fica embaixo: o estado inteiro tem de caber acima dela
+                eq = pg.evaluate("PAINEL.enquadramento()")
+                topo_ficha = pg.evaluate("document.getElementById('painel').getBoundingClientRect().top - document.getElementById('map').getBoundingClientRect().top")
+                check(eq["y0"] >= 0 and eq["y1"] <= topo_ficha and eq["x0"] >= 0 and eq["x1"] <= eq["w"],
+                      f"{nome}_{tema}: com a ficha aberta, o estado inteiro aparece acima dela (até y={eq['y1']:.0f}; ficha em {topo_ficha:.0f})")
             esperado_secs = {"ind": True, "faixa": False, "ano": False, "local": False, "rede": False} if cel else {k: True for k in ["ind", "faixa", "ano", "local", "rede"]}
             check(secs == esperado_secs, f"{nome}_{tema}: seções da ficha {'recolhidas no celular (só os indicadores abertos)' if cel else 'abertas na tela grande'} {secs}")
             pg.screenshot(path=str(CAP / f"{rot}_mapa_ficha.png"))

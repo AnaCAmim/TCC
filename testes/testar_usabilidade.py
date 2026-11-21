@@ -220,6 +220,11 @@ with sync_playwright() as p:
                for pal in ["q", "d"]}
         acess[tema] = {"contraste": c, "daltonismo_dE_min": {"sequencial": dal["q"], "divergente": dal["d"]}}
         check(min(c.values()) >= 4.5, f"contraste AA ({tema}): mínimo {min(c.values())}:1 (≥ 4,5)")
+        # hachura do valor instável: a linha (escura ou clara) que mais contrasta com a cor, como em mapa.js; contraste ≥ 3:1
+        linha = lambda cor: "#3a3833" if contraste(cor, "#3a3833") >= contraste(cor, "#f2f1ec") else "#f2f1ec"
+        hach = {f"--{p}{i}": round(contraste(tk[f"--{p}{i}"], linha(tk[f"--{p}{i}"])), 2) for p in "qd" for i in range(1, 6)}
+        acess[tema]["hachura"] = hach
+        check(min(hach.values()) >= 3, f"hachura ({tema}): contraste mínimo linha × cor {min(hach.values())}:1 (≥ 3)")
         check(min(min(v.values()) for v in dal.values()) >= 10, f"daltonismo ({tema}): ΔE mínimo entre classes vizinhas {min(min(v.values()) for v in dal.values())} (≥ 10)")
         ctx.close()
 

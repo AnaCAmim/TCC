@@ -129,6 +129,11 @@ err_pct = [r for r in loc if int(r["total"]) and abs(float(r["pct"]) - int(r["ca
 check(not err_pct and all(feats[r["cod_ibge7"]]["local"][int(r["categoria"]) - 1] == int(r["casos"]) for r in loc),
       f"local de notificação: % da view = fórmula e dados.json igual ao banco ({len(err_pct)} divergências)")
 
+# Contornos de referência do mapa (só desenho): estado e as 16 regiões de saúde
+ct = dj.get("contornos", {})
+check(ct.get("estado", {}).get("type") in ("Polygon", "MultiPolygon") and sorted(r["cod"] for r in ct.get("regioes", [])) == sorted(dj["regioes"]),
+      "dados.json: contorno do estado e das 16 regiões de saúde para o mapa")
+
 print(f"Teste dos dados: {len(ok)} verificações OK, {len(falhas)} falhas")
 for f in falhas:
     print("  FALHA:", f)
