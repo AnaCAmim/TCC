@@ -124,7 +124,7 @@ docs/           plano do painel, revisão de usabilidade e acessibilidade, mater
 atualizar.bat   roda tudo em ordem; testar_navegadores.bat repete os testes no Firefox e no WebKit
 ```
 
-Tecnologias: PostgreSQL 16 + PostGIS 3.4 (Docker), Python 3 (só biblioteca padrão no pipeline; Playwright nos testes), HTML, CSS e JavaScript sem framework, Leaflet 1.9.4. O JavaScript fica em arquivos comuns (`<script src>`), sem módulos ES, porque o Chrome bloqueia módulos em páginas abertas com duplo clique.
+Tecnologias: PostgreSQL 16 + PostGIS 3.4 (Docker), Python 3 (só biblioteca padrão no pipeline; Playwright nos testes), HTML, CSS e JavaScript sem framework, Leaflet 1.9.4, fontes IBM Plex Sans e Serif servidas localmente. O JavaScript fica em arquivos comuns (`<script src>`), sem módulos ES, porque o Chrome bloqueia módulos em páginas abertas com duplo clique.
 
 ## Limitações
 
@@ -138,4 +138,4 @@ Tecnologias: PostgreSQL 16 + PostGIS 3.4 (Docker), Python 3 (só biblioteca padr
 
 ## Licença
 
-Código sob licença MIT (ver `LICENSE`). O Leaflet tem licença própria (BSD 2-Clause). Os dados públicos de `dados/brutos/` pertencem às fontes citadas.
+Código sob licença MIT (ver `LICENSE`). O Leaflet tem licença própria (BSD 2-Clause), e as fontes IBM Plex, a SIL Open Font License (`web/fonts/OFL.txt`). Os dados públicos de `dados/brutos/` pertencem às fontes citadas.

@@ -97,3 +97,49 @@ Revisão de acabamento feita como faria uma banca de Interface com o Usuário, s
 | A11 | Abrir o painel montava as três telas de uma vez: no celular simulado, 380 ms de bloqueio e Desempenho 75 no Lighthouse. | Eficiência; tempo de resposta | 2 | Análise e Como calcular só são montadas na primeira vez que se abre a aba; "Sobre o painel" abre sem esperar os dados; o aviso de carregamento não desloca o layout; meta description. Lighthouse: celular 99, computador 100 (ver `docs/lighthouse/`). |
 
 Teste-piloto depois do acabamento: as tarefas continuam com 1 ou 2 ações. Na primeira visita há 1 ação a mais (fechar "Sobre o painel"), só uma vez.
+
+## Visual de relatório técnico (ramo `bases-contexto`, 20/11/2026)
+
+Objetivo: tirar a aparência de interface genérica e dar ao painel o visual de relatório técnico / jornalismo de dados. Dados, SQL, fórmulas, indicadores, funções e a estrutura das 3 telas não mudaram. O front anterior está em `backup/etapa5/`, fora do repositório.
+
+### Visual (antes → depois)
+
+| # | Elemento | Antes | Depois |
+|---|---|---|---|
+| V1 | Cor institucional | Roxo (#5b3fa8) em abas ativas, botões principais, faixas laterais e ícones | Azul-petróleo escuro (#0e4f5c; no tema escuro, #7fc3cf) só em links, foco e item ativo; o resto em cinzas quentes. Escalas do mapa sem mudança |
+| V2 | Tipografia | Fonte do sistema (system-ui) em tudo | IBM Plex Sans no texto e IBM Plex Serif nos títulos, servidas de `web/fonts/` (woff2, cerca de 60 KB; licença OFL em `web/fonts/OFL.txt`). Números tabulares em tabelas, ficha, ranking, destaques e gráficos |
+| V3 | Cantos | 8 a 14 px; botões e abas em pílula | 2 a 4 px |
+| V4 | Abas (Mapa, Análise, Como calcular) | Botões arredondados, o ativo preenchido de roxo | Texto com sublinhado de 2 px na cor institucional no item ativo |
+| V5 | Alternâncias (10 maiores/menores; Casos/Taxa) | Botões arredondados com fundo lilás no ativo | Mesmo padrão sublinhado das abas |
+| V6 | Botões | Pílulas; o principal em roxo | Retângulos com borda fina (contraste ≥ 3:1); o principal em cinza-escuro sólido |
+| V7 | Sombras | No título e na legenda do mapa, na ficha, no tour e nos avisos | Nenhuma; borda fina só onde algo flutua sobre o mapa |
+| V8 | Cartões | Análise e Como calcular em cartões com borda e fundo; indicadores da ficha em caixas | Seções separadas por linha fina e espaço; indicadores da ficha em linhas |
+| V9 | Faixas coloridas à esquerda | Resultados da Análise (roxo), frase-resumo da ficha (azul/vermelho), tela de erro | Removidas; a hierarquia vem do tamanho e do peso do texto |
+| V10 | Topo | Título e subtítulo; faixa amarela de aviso em toda a largura | Cabeçalho de relatório: título em serifa, subtítulo com período e fontes, nota discreta sob o título e crédito "TCC · Sistemas de Informação · UFPB/CCAE" à direita |
+| V11 | Números-resumo da Análise | Quatro cartões com número de 28 px | Linha de destaques entre filetes, número de 20 px e rótulo curto |
+| V12 | Principais resultados | Título em negrito, evidência e pergunta em itálico roxo | Um parágrafo por resultado com os números em negrito; "Para a gestão: …" em texto normal |
+| V13 | Tela Sobre | Avisos numa caixa amarela | Seções com títulos discretos em versalete: Como usar, Indicadores, Como ler, Fontes |
+| V14 | Favicon | Roxo | Azul-petróleo |
+
+### Texto (antes → depois)
+
+| # | Onde | Antes | Depois |
+|---|---|---|---|
+| T1 | Ranking | "Bom Jesus — 505,5 por 100 mil/ano" (travessão) | "Bom Jesus: 505,5 por 100 mil/ano" |
+| T2 | Aviso de notificação | Faixa amarela no topo; "Notificação não é ocorrência" no Sobre; "A notificação mede o registro, não a ocorrência" em Fontes e limitações | Uma nota sob o título: "Os números são casos notificados pelos serviços de saúde, não o total de casos que ocorrem." Em Como calcular fica só a leitura específica do observado ÷ esperado |
+| T3 | Aviso de poucos casos | Na legenda do mapa, no ranking, na tabela, três vezes na ficha, no Sobre e três vezes em Como calcular | Só onde há asterisco ou valor instável: nota do ranking e das tabelas ("* Menos de 10 casos no período: valor instável."), aviso curto na ficha e uma linha "Como ler" no Sobre. Saiu da legenda, da frase-resumo e dos "Cuidado" de taxa e de local |
+| T4 | Resultados (Análise) | "…não só a mulher adulta."; "…mas não só pelo tamanho."; "…ou seja, notifica proporcionalmente mais…"; "É onde vale o gestor investigar primeiro."; "Vale conhecer o que funciona neles." | Frases diretas, sem essas construções: "Meninas e mulheres jovens concentram os casos."; "Os casos se concentram nos municípios maiores."; dois títulos passaram a trazer o número calculado ("17 municípios notificam menos da metade do esperado.") |
+| T5 | Título do bloco | "Leituras prontas"; "Pergunta para a gestão:" | "Principais resultados"; "Para a gestão:" |
+| T6 | Destaques | "casos por 100 mil mulheres por ano (média do estado)"; "variação de casos entre 2019 e 2024" | "por 100 mil mulheres por ano, estado"; "variação dos casos, 2019 a 2024" |
+| T7 | Sobre | "Mostra as notificações … para apoiar gestoras e gestores públicos a planejar a rede de atendimento."; "Escolha o que ver no topo à esquerda: …"; "Começar pelo tour" | "Notificações de violência contra a mulher nos 223 municípios da Paraíba, de 2019 a 2024. Feito para gestoras e gestores da rede de atendimento."; um passo por frase; "Ver o tour" |
+| T8 | Tour | "Agora o mapa compara cada município…"; "dá para comparar idades…"; "qualquer número do painel pode ser refeito…" | "Cada município comparado com o estado. Azul: abaixo do esperado. Vermelho: acima."; "A taxa por 100 mil mulheres da faixa permite comparar idades com populações diferentes."; "Todas as contas podem ser refeitas numa planilha." |
+| T9 | Ficha | "Com números tão pequenos, um caso a mais ou a menos muda muito a taxa e o observado ÷ esperado."; "Barra: … · traço preto: …"; "Detalhe por faixa, em casos ou em taxa, em 'Faixa etária em detalhe'." | "Poucos casos (N no tipo e período): taxa e observado ÷ esperado instáveis."; "Barra: … Traço: …"; "Detalhe por faixa abaixo, em casos ou em taxa." |
+| T10 | Dicas do indicador | "Quantidade de notificações. Mostra onde está o volume de atendimento."; "Compara o município com o estado: 1 é igual, abaixo de 1 notifica menos, acima notifica mais." | "Número de notificações. Mostra o volume de atendimento."; "Compara com o estado: 1 é igual; abaixo de 1, notifica menos; acima, mais." |
+| T11 | Como calcular | "Os cinco indicadores deste painel … Nenhum modelo estatístico complexo é usado …"; definições longas; "Não é um sexto indicador: …" | "Como os indicadores são calculados" e uma frase de fontes; definições de uma linha ("Casos por ano a cada 100 mil mulheres do município."); "Contexto: local de atendimento", terminando em "Não é um indicador." |
+| T12 | Rodapé | Crédito do TCC repetido | Crédito só no topo; rodapé com "Dados públicos e agregados, sem identificação de pessoas." e o endereço do código-fonte |
+
+### Conferência
+
+- Contraste mínimo (testar_usabilidade.py): claro 5,29:1 (antes 4,77:1); escuro 6,36:1 (antes 5,9:1). Foco na cor institucional: 8,8:1 (claro) e 9,2:1 (escuro). Paleta do mapa sem mudança (ΔE mínimo 10,0).
+- Lighthouse (página inicial, servidor com compressão): celular Desempenho 99 e Acessibilidade 100; computador 100 e 100 (`docs/lighthouse/`). Sem pré-carregamento das fontes, o celular caía para 96. O pré-carregamento só é feito quando o painel é servido por http, porque no duplo clique (`file://`) o navegador o bloqueia e acusa erro de CORS.
+- Testes: dados 66, painel 120 (Firefox e WebKit 119), usabilidade 30, nos dois modos de abertura. Novo teste: nenhum travessão nos textos das telas, do Sobre e do Tour.
