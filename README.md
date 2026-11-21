@@ -66,7 +66,7 @@ Views: `vw_indicador_municipio_ano_tipo` (município × período × tipo), `vw_i
 ## O que o painel oferece
 
 - Filtros de indicador, tipo de violência, período (cada ano ou 2019–2024) e **região de saúde** (16 regiões; recorta o mapa, o ranking e a tabela e aproxima o mapa da região).
-- Título do mapa com os filtros ativos; legenda com a média do estado (e da região, quando escolhida).
+- Mapa temático: taxa e observado ÷ esperado em cores, com hachura onde há menos de 10 casos; casos em círculos proporcionais. Contorno do estado, limites das regiões de saúde (liga/desliga), rótulos das cidades-polo, barra de escala e fonte. Legenda com unidade, recorte, municípios por classe e a média do estado. Botões **Ver estado inteiro** e **Baixar mapa (PNG)**, com título, legenda e fonte, para relatório.
 - Ranking dos 10 maiores e dos 10 menores (nos menores entram só municípios com pelo menos 10 casos).
 - **Ficha do município:** frase-resumo calculada no topo (o que olhar primeiro), os 5 indicadores comparados com o estado e com a região de saúde, série anual, tipos, faixa etária ("Faixa mais atingida" e botões **Casos | Taxa por 100 mil/ano**, com a taxa do estado como referência), aviso de poucos casos, link "como calcular" e **Imprimir ficha**.
 - **Onde as mulheres foram atendidas** (contexto, na ficha e na Análise): barra única de 100% com mesma região de saúde, outra região da Paraíba e fora da Paraíba, com número e %. % = casos atendidos na categoria ÷ casos do município × 100. Não é indicador e não diz o motivo.
