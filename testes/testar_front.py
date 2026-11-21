@@ -283,7 +283,7 @@ with sync_playwright() as pw:
             pg.evaluate(f"location.hash = '#mapa-{c}'"); pg.wait_for_timeout(500)
             txt = pg.inner_text("#painel .local")
             ok_l = all(f"{LOCREF[(c, k)][0]} " in txt and fmt(LOCREF[(c, k)][2], 1) + "%" in txt for k in (1, 2, 3))
-            instavel = "Valor instável" in txt
+            instavel = "instáveis" in txt
             check(ok_l and instavel == (LOCREF[(c, 1)][1] < 10) and "o dado não diz o motivo" in txt and pg.locator("#painel .local .barra100 span").count() >= 1,
                   f"{modo}: ficha ({REF[(c, 'all', 'total')]['nome']}) mostra onde as mulheres foram atendidas, com número, % e aviso de instabilidade quando < 10 casos")
             if modo == "http" and c == SOUSA:
@@ -401,9 +401,11 @@ with sync_playwright() as pw:
     pg = ctx.new_page(); erros_s = []; ouvir(pg, erros_s)
     abrir(pg, MODOS["http"])
     txt_sobre = pg.inner_text("#sobre") if pg.evaluate("document.getElementById('sobre').open") else ""
-    check(all(x in txt_sobre for x in ["Como usar em 3 passos", "Casos notificados", "Taxa por 100 mil mulheres por ano", "Tipos de violência", "Faixa etária",
-                                        "Observado ÷ esperado", "Notificação não é ocorrência", "Poucos casos", "Fontes"]) and pg.locator("#carregando").count() == 0,
-          "1ª visita: Sobre o painel abre sozinho com uso em 3 passos, 5 indicadores, fontes e avisos (e o aviso de carregamento some)")
+    passos_sobre = pg.locator("#sobre ol.passos li").count() if txt_sobre else 0
+    check(all(x in txt_sobre.lower() for x in ["como usar", "casos notificados", "taxa por 100 mil mulheres por ano", "tipos de violência", "faixa etária",
+                                                "observado ÷ esperado", "como ler", "menos de 10 casos", "fontes"]) and passos_sobre == 3
+          and "não o total de casos que ocorrem" in pg.inner_text("header .nota-topo") and pg.locator("#carregando").count() == 0,
+          "1ª visita: Sobre o painel abre sozinho com uso em 3 passos, 5 indicadores, como ler e fontes; o aviso de notificação fica sob o título (e o de carregamento some)")
     pg.screenshot(path=str(CAP / "sobre_o_painel.png"))
     pg.click("#sobreComecar"); pg.reload(); pg.wait_for_function("window.PAINEL !== undefined"); pg.wait_for_timeout(300)
     check(not pg.evaluate("document.getElementById('sobre').open"), "Sobre o painel não volta depois de fechado (localStorage)")
@@ -429,6 +431,8 @@ with sync_playwright() as pw:
           and passos[2][2] == "#mapa-" + SOUSA and passos[3][4] == "true" and passos[4][2] == "#analise" and passos[5][2] == "#como-calcular"
           and volta == "#analise" and pg.evaluate("document.getElementById('tour').hidden") and pg.evaluate("document.activeElement.id") == "abrirTour" and not erros_s,
           f"tour: 6 passos na ordem combinada, setas e Esc (foco volta ao botão) {[x[1] for x in passos]}")
+    sem_travessao = pg.evaluate("!(document.querySelector('main').textContent + document.getElementById('sobre').textContent + document.getElementById('tour').textContent + document.querySelector('header').textContent).includes('—')")
+    check(sem_travessao, "textos das 3 telas, do Sobre e do Tour sem travessão (—)")
     ctx.close()
     # chegar por link de ficha não abre o Sobre
     ctx = ctx_puro(viewport={"width": 1366, "height": 768}); pg = ctx.new_page()
