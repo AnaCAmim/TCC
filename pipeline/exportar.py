@@ -8,6 +8,7 @@ from banco import RAIZ, TOTAL_CASOS, TOTAL_MUNICIPIOS, TOTAL_MULHERES, ANOS, TIP
 WEB = RAIZ / "web"
 FAIXAS = ["<1 Ano", "1-4", "5-9", "10-14", "15-19", "20-29", "30-39", "40-49", "50-59", "60 e mais", "Ign/Branco"]
 TOLERANCIA_SIMPLIFICACAO = 0.001   # graus (cerca de 100 m): reduz o arquivo sem mudar o desenho do mapa
+TOLERANCIA_CONTORNOS = 0.0025      # contornos de referência (estado e regiões de saúde), só para desenho (~250 m)
 CASAS_COORD = 3
 
 
@@ -25,6 +26,10 @@ def main():
     taxa_fx = {(r["cod_ibge7"], int(r["faixa_id"])): float(r["taxa_100mil_ano"]) for r in consulta(
         "SELECT cod_ibge7, faixa_id, taxa_100mil_ano FROM websig.vw_faixa_municipio WHERE taxa_100mil_ano IS NOT NULL")}
     rede = {r["cod_ibge7"]: r for r in consulta("SELECT * FROM websig.rede_atendimento")}
+    # Contornos de referência do mapa: união das geometrias municipais (só desenho; não entram em conta nenhuma)
+    contorno_reg = consulta(f"""SELECT r.cod_regiao, ST_AsGeoJSON(ST_SimplifyPreserveTopology(ST_Union(m.geom), {TOLERANCIA_CONTORNOS}), {CASAS_COORD}) AS geom
+        FROM websig.municipio m JOIN websig.regiao_saude r USING (cod_ibge6) GROUP BY r.cod_regiao ORDER BY r.cod_regiao""")
+    contorno_est = consulta(f"SELECT ST_AsGeoJSON(ST_SimplifyPreserveTopology(ST_Union(geom), {TOLERANCIA_CONTORNOS}), {CASAS_COORD}) AS geom FROM websig.municipio")[0]["geom"]
     local = {}   # cod -> [mesma região de saúde, outra região da PB, fora da Paraíba]
     pct_local = {}
     for r in consulta("SELECT cod_ibge7, categoria, casos, pct FROM websig.vw_local_atendimento"):
@@ -81,6 +86,7 @@ def main():
             confere(abs(tx - taxa_fx[(p["cod"], i + 1)]) < 1e-6, f"taxa da faixa {FAIXAS[i]} diverge da view em {p['nome']}")
     confere(sum(sum(f["properties"]["popfx"]) for f in feats) == TOTAL_MULHERES, "mulheres por faixa: total do estado")
     confere(len(rede) == TOTAL_MUNICIPIOS, f"rede de atendimento: {len(rede)} municípios")
+    confere(len(contorno_reg) == 16 and json.loads(contorno_est)["type"] in ("Polygon", "MultiPolygon"), f"contornos: {len(contorno_reg)} regiões de saúde (esperado 16)")
     # Local de notificação: as três categorias somam os casos por residência; % recalculado do arquivo = view
     for f in feats:
         p = f["properties"]; tot_p = sum(p["casos"]["total"])
@@ -106,6 +112,7 @@ def main():
              "fonte_regioes": "Ministério da Saúde/DATASUS, Base Territorial (jun/2026): região e macrorregião de saúde",
              "fonte_faixas": "IBGE, Censo 2022, SIDRA 9514: mulheres por idade, somadas nas faixas do SINAN",
              "fonte_rede": "IBGE, MUNIC 2023: serviços declarados pela prefeitura",
+             "contornos": {"estado": json.loads(contorno_est), "regioes": [{"cod": r["cod_regiao"], "geom": json.loads(r["geom"])} for r in contorno_reg]},
              "fonte_local": "SINAN/TABNET: município de residência × região de saúde de notificação; fora da PB = casos por residência − notificados na PB"}
     texto = json.dumps(dados, ensure_ascii=False, separators=(",", ":"))
     (WEB / "dados.json").write_text(texto, encoding="utf-8")
