@@ -4,6 +4,8 @@
 window.WS = window.WS || {};
 WS.mapa = (function () {
   const { $, nf, np, css, esc, semAc } = WS.util;
+  // tokens de cor do mapa (legenda, contornos, símbolos, PNG): lidos do elemento #map, que fica claro também no tema escuro
+  const cssM = v => getComputedStyle($('map')).getPropertyValue(v).trim() || css(v);
   const S = { ind: 'taxa', tipo: 'total', per: 'all', reg: '', sel: null, rk: 'maiores', tabela: false, fx: 'casos' };
   const MIN_CASOS = 10;   // abaixo disso a taxa e o observado ÷ esperado ficam instáveis
   const HINT = {
@@ -49,14 +51,14 @@ WS.mapa = (function () {
     return { cort: c, cores: ['--q1', '--q2', '--q3', '--q4', '--q5'].slice(5 - (c.length + 1)), rot: rotCurto(c) };
   }
   const classeDe = v => { let i = 0; while (i < CL.cort.length && v >= CL.cort[i]) i++; return i; };
-  const corDe = v => css(CL.cores[classeDe(v)]);
+  const corDe = v => cssM(CL.cores[classeDe(v)]);
 
   /* ---------- cartografia: centroides, símbolos proporcionais, hachura, contornos, rótulos ---------- */
   const R_MAX = 26;   // raio (px) do maior círculo; área do círculo ∝ casos, logo raio ∝ raiz quadrada dos casos
   const POLOS = ['João Pessoa', 'Campina Grande', 'Patos', 'Sousa', 'Cajazeiras', 'Guarabira', 'Monteiro'];   // em ordem de prioridade
   const TITULO_LEG = { taxa: 'Taxa por 100 mil mulheres por ano', casos: 'Casos notificados', oe: 'Comparação com a média da Paraíba' };
   let grupoSimb, rSimb, camRegioes, camEstado, rotulos = [], centro = {}, ESC = null, estadoB, zoomInicial = 7.5, verRegioes = true, chavePadroes = '';
-  let destacarPoucos = true, legAberta = innerWidth > 860;   // hachura ligada; legenda aberta no computador, recolhida no celular
+  let destacarPoucos = true, legAberta = innerWidth > 860, lerAberto = false, vistaAuto = true, enquadrando = false;   // hachura ligada; legenda aberta no computador, recolhida no celular
   const raio = v => ESC.rmax * Math.sqrt(v / ESC.vmax);
   function areaAnel(a) { let s = 0; for (let i = 0; i < a.length - 1; i++) s += a[i][0] * a[i + 1][1] - a[i + 1][0] * a[i][1]; return s / 2; }
   function dentroAnel(pt, a) {
@@ -107,7 +109,7 @@ WS.mapa = (function () {
     return { cor: '#000000', op: 1 };
   }
   function padroes() {
-    const cores = CL.cores.map(v => css(v)), chave = cores.join();
+    const cores = CL.cores.map(v => cssM(v)), chave = cores.join();
     if (chave === chavePadroes) return;
     chavePadroes = chave;
     const svg = map.getRenderer(camada.getLayers()[0])._container;
@@ -121,15 +123,15 @@ WS.mapa = (function () {
     if (S.ind !== 'casos') return;
     ESC = { vmax: Math.max(1, ...C.F.map(f => casosSel(f.properties))), rmax: R_MAX };   // escala do estado inteiro (comparável entre regiões)
     C.F.map(f => f.properties).filter(p => casosSel(p) > 0).sort((a, b) => casosSel(b) - casosSel(a)).forEach(p => {   // maiores primeiro = atrás
-      const c = L.circleMarker(centro[p.cod], { renderer: rSimb, radius: raio(casosSel(p)), fillColor: css('--simbolo'), fillOpacity: 0.6, color: '#ffffff', weight: 0.8 });
+      const c = L.circleMarker(centro[p.cod], { renderer: rSimb, radius: raio(casosSel(p)), fillColor: cssM('--simbolo'), fillOpacity: 0.6, color: '#ffffff', weight: 0.8 });
       c.feature = { properties: p };
       ligar(c, p.cod, porCamada[p.cod]);
       c.addTo(grupoSimb);
       c.getElement().setAttribute('data-cod', p.cod);
     });
   }
-  const estiloRegiao = f => (f.properties.cod === S.reg ? { fill: false, color: css('--accent'), weight: 3.2, opacity: 1 }
-    : { fill: false, color: css('--limite-reg'), weight: 1.8, opacity: verRegioes ? 0.9 : 0 });
+  const estiloRegiao = f => (f.properties.cod === S.reg ? { fill: false, color: cssM('--accent'), weight: 3.2, opacity: 1 }
+    : { fill: false, color: cssM('--limite-reg'), weight: 1.8, opacity: verRegioes ? 0.9 : 0 });
   // rótulos das cidades-polo: em ordem de prioridade, sem sobrepor outro rótulo, a ficha, a legenda ou o título
   function arrumarRotulos() {
     const vistos = [], evitar = ['painel', 'leg', 'mapatitulo'].map(id => $(id)).filter(e => e && e.offsetParent && e.style.display !== 'none').map(e => e.getBoundingClientRect());
@@ -144,13 +146,52 @@ WS.mapa = (function () {
       if (lado === undefined || (i >= 5 && map.getZoom() < zoomInicial)) el.style.visibility = 'hidden'; else vistos.push(el.firstChild.getBoundingClientRect());
     });
   }
-  // área livre do mapa: desconta o título e, com a ficha aberta, a largura (computador) ou a altura (celular) da ficha
-  function areaLivre() {
-    const big = innerWidth > 860, aberta = S.sel && !S.tabela && $('painel').style.display !== 'none';
+  // anéis externos do contorno a enquadrar (estado ou região de saúde), em [lng, lat]
+  function aneisDe(b) {
+    if (!C.CONTORNOS) return null;
+    const g = b === estadoB || !S.reg ? C.CONTORNOS.estado : (C.CONTORNOS.regioes.find(x => x.cod === S.reg) || {}).geom;
+    return g ? (g.type === 'Polygon' ? [g.coordinates] : g.coordinates).map(pl => pl[0]) : null;
+  }
+  // o contorno, na vista que a margem "o" daria, encosta em algum dos retângulos (coordenadas do mapa, em px)?
+  function contornoBate(b, o, aneis, rets) {
+    const v = map._getBoundsCenterZoom(b, o), c0 = map.project(v.center, v.zoom), meio = map.getSize().divideBy(2);
+    const pts = aneis.map(a => a.map(([x, y]) => map.project([y, x], v.zoom).subtract(c0).add(meio)));
+    const dentroRet = (q, t) => q.x > t[0] && q.x < t[2] && q.y > t[1] && q.y < t[3];
+    const dentroPol = (x, y) => pts.some(a => { let d = false; for (let i = 0, j = a.length - 1; i < a.length; j = i++) { if ((a[i].y > y) !== (a[j].y > y) && x < (a[j].x - a[i].x) * (y - a[i].y) / (a[j].y - a[i].y) + a[i].x) d = !d; } return d; });
+    return rets.some(t => pts.some(a => a.some(q => dentroRet(q, t))) || [[t[0], t[1]], [t[2], t[1]], [t[0], t[3]], [t[2], t[3]], [(t[0] + t[2]) / 2, (t[1] + t[3]) / 2]].some(([x, y]) => dentroPol(x, y)));
+  }
+  // área livre do mapa (computador e celular): abaixo do título, fora da ficha, sem cobrir os botões de zoom nem a legenda aberta.
+  // Margens seguras: estado ao lado da legenda ou acima dela (vale a que der o mapa maior). Depois, procura margens menores em que
+  // o contorno real (não a caixa) continue sem encostar na legenda nem nos botões: a legenda pode ocupar um canto vazio da caixa.
+  function areaLivre(b) {
+    const big = innerWidth > 860, aberta = S.sel && !S.tabela && $('painel').style.display !== 'none', m = $('map').getBoundingClientRect();
     let br = [16, 16];
     if (aberta) br = big ? [$('painel').offsetWidth + 28, 16] : [16, $('painel').offsetHeight + 16];
-    const esq = big && $('leg').offsetWidth ? $('leg').offsetWidth + 34 : 16;   // a legenda (canto inferior esquerdo) não cobre o estado
-    return { paddingTopLeft: [esq, 56], paddingBottomRight: br };
+    const t = $('mapatitulo').getBoundingClientRect(), topo = Math.max(56, Math.round(t.bottom - m.top + 10));
+    const ctl = document.querySelector('#map .leaflet-top.leaflet-left'), cr = ctl && ctl.getBoundingClientRect();
+    const esqCtl = cr && cr.width ? Math.round(cr.right - m.left + 12) : 64;
+    const lg = $('leg').getBoundingClientRect(), temLeg = lg.width > 0 && lg.height > 0;
+    const lado = { paddingTopLeft: [temLeg ? Math.max(esqCtl, Math.round(lg.right - m.left + 20)) : esqCtl, topo], paddingBottomRight: br };
+    const acima = { paddingTopLeft: [esqCtl, topo], paddingBottomRight: [br[0], temLeg ? Math.max(br[1], Math.round(m.bottom - lg.top + 12)) : br[1]] };
+    // margem que deixa menos de 120 px livres não serve (no celular, a legenda aberta ocupa quase todo o mapa: aí ela fica por cima)
+    const cabe = o => m.width - o.paddingTopLeft[0] - o.paddingBottomRight[0] >= 120 && m.height - o.paddingTopLeft[1] - o.paddingBottomRight[1] >= 120;
+    const semLeg = { paddingTopLeft: [16, topo], paddingBottomRight: br };
+    if (!b) return cabe(lado) ? lado : semLeg;
+    const z = o => map.getBoundsZoom(b, false, L.point(o.paddingTopLeft).add(L.point(o.paddingBottomRight)));
+    const validas = [acima, lado].filter(cabe);
+    if (!validas.length) return semLeg;
+    let melhor = validas.length === 2 && z(lado) > z(acima) ? lado : validas[0];
+    const aneis = aneisDe(b);
+    if (!aneis) return melhor;
+    const rel = r => [r.left - m.left - 8, r.top - m.top - 8, r.right - m.left + 8, r.bottom - m.top + 8];
+    const rets = (cr && cr.width ? [rel(cr)] : []).concat(temLeg ? [rel(lg)] : []);
+    const esq0 = 16, esq1 = lado.paddingTopLeft[0], bas0 = br[1], bas1 = acima.paddingBottomRight[1];
+    let zm = z(melhor);
+    for (let i = 0; i <= 6; i++) for (let j = 0; j <= 6; j++) {
+      const o = { paddingTopLeft: [Math.round(esq0 + (esq1 - esq0) * i / 6), topo], paddingBottomRight: [br[0], Math.round(bas0 + (bas1 - bas0) * j / 6)] }, zo = z(o);
+      if (zo > zm + 1e-9 && cabe(o) && !contornoBate(b, o, aneis, rets)) { melhor = o; zm = zo; }
+    }
+    return melhor;
   }
   const limitesRecorte = () => {
     if (!S.reg) return estadoB;
@@ -160,23 +201,23 @@ WS.mapa = (function () {
 
   /* ---------- desenho ---------- */
   function estilizar() {
-    CL = classes(); const bord = css('--limite-mun'), simb = S.ind === 'casos';
+    CL = classes(); const bord = cssM('--limite-mun'), simb = S.ind === 'casos';
     $('mapwrap').classList.toggle('modo-casos', simb);
     if (!simb) padroes();
     camada.eachLayer(l => {
       const p = l.feature.properties, s = S.sel === p.cod, dentro = noRecorte(p), el = l.getElement(), instavel = !simb && destacarPoucos && casosSel(p) < MIN_CASOS;
-      const fill = simb ? css('--base-mapa') : instavel ? 'url(#hach-' + classeDe(valor(p)) + ')' : corDe(valor(p));
-      l.setStyle({ fillColor: fill, fillOpacity: dentro ? 1 : (simb ? 0.45 : 0.15), color: s ? css('--accent') : bord, weight: s ? 3.5 : 0.6 });
+      const fill = simb ? cssM('--base-mapa') : instavel ? 'url(#hach-' + classeDe(valor(p)) + ')' : corDe(valor(p));
+      l.setStyle({ fillColor: fill, fillOpacity: dentro ? 1 : (simb ? 0.45 : 0.15), color: s ? cssM('--accent') : bord, weight: s ? 3.5 : 0.6 });
       el.tabIndex = dentro ? 0 : -1;
       el.setAttribute('data-instavel', instavel ? '1' : '0');
       el.setAttribute('aria-label', p.nome + ': ' + fmtValor(valor(p)) + (instavel ? ' (menos de 10 casos: valor instável)' : ''));
     });
     if (grupoSimb) grupoSimb.eachLayer(c => {
       const p = c.feature.properties, s = S.sel === p.cod, dentro = noRecorte(p);
-      c.setStyle({ fillColor: css('--simbolo'), fillOpacity: dentro ? 0.6 : 0.12, opacity: dentro ? 1 : 0.25, color: s ? css('--accent') : '#ffffff', weight: s ? 2.5 : 0.8 });
+      c.setStyle({ fillColor: cssM('--simbolo'), fillOpacity: dentro ? 0.6 : 0.12, opacity: dentro ? 1 : 0.25, color: s ? cssM('--accent') : '#ffffff', weight: s ? 2.5 : 0.8 });
     });
     if (camRegioes) camRegioes.setStyle(estiloRegiao);
-    if (camEstado) camEstado.setStyle({ fill: false, color: css('--ink'), weight: 2.4, opacity: 0.9 });
+    if (camEstado) camEstado.setStyle({ fill: false, color: cssM('--ink'), weight: 2.4, opacity: 0.9 });
     frente(S.sel);
   }
   // O selecionado vai para a frente (borda inteira visível); ao trocar, o anterior volta ao lugar em ordem alfabética
@@ -189,7 +230,7 @@ WS.mapa = (function () {
     if (cod && naFrente !== cod) { porCamada[cod].bringToFront(); naFrente = cod; }
   }
   /* ---------- dica (nome + valor): mouse segue o cursor; toque e teclado ficam acima do município, sem cobri-lo ---------- */
-  function destacar(l, cor) { if (S.sel !== l.feature.properties.cod) l.setStyle({ weight: cor ? 3 : 2.5, color: css(cor || '--ink') }); }
+  function destacar(l, cor) { if (S.sel !== l.feature.properties.cod) l.setStyle({ weight: cor ? 3 : 2.5, color: cssM(cor || '--ink') }); }
   function dicaPerto(l, aviso, modo) {
     dicaModo = modo;
     const p = l.feature.properties, r = l.getElement().getBoundingClientRect(), m = $('map').getBoundingClientRect();
@@ -205,42 +246,50 @@ WS.mapa = (function () {
   // enquadra o recorte na área livre e só depois ajusta o limite de arraste (vista atual + meia Paraíba de margem),
   // para o limite nunca puxar o mapa de volta para trás da ficha
   function limitarArraste() { map.setMaxBounds(map.getBounds().extend(estadoB.pad(0.5))); }
-  function enquadrar(b) { map.setMaxBounds(null); map.fitBounds(b || limitesRecorte(), Object.assign(areaLivre(), { animate: false })); limitarArraste(); }
+  function enquadrar(b) {
+    const alvo = b || limitesRecorte();
+    enquadrando = true; map.setMaxBounds(null); map.fitBounds(alvo, Object.assign(areaLivre(alvo), { animate: false })); limitarArraste(); enquadrando = false; vistaAuto = true;
+  }
+  // a legenda mudou de tamanho (indicador, recolher, "Como ler"): reenquadra, a não ser que a pessoa já tenha mexido no mapa
+  function reenquadrar() { if (vistaAuto) enquadrar(); arrumarRotulos(); }
   function legendaCirculos() {
     if (!ESC) return '';
     const ref = [1, 10, 100, 1000, 10000].filter(v => v <= ESC.vmax).slice(-3), rmax = raio(ref[ref.length - 1]), base = 2 * rmax + 6;
     let corpo = '', yAnt = -99;
     ref.slice().reverse().forEach(v => {   // do maior para o menor; rótulos a pelo menos 14 px um do outro
       const r = raio(v), topo = base - 2 * r, y = Math.max(topo + 4, yAnt + 14); yAnt = y;
-      corpo += '<circle cx="' + (rmax + 2) + '" cy="' + (base - r) + '" r="' + r + '" fill="' + css('--simbolo') + '" fill-opacity=".35" stroke="' + css('--ink-2') + '" stroke-width="1"/>' +
-        '<polyline points="' + (rmax + 2) + ',' + topo + ' ' + (2 * rmax + 10) + ',' + (y - 4) + '" fill="none" stroke="' + css('--ink-3') + '" stroke-dasharray="2 2"/>' +
+      corpo += '<circle cx="' + (rmax + 2) + '" cy="' + (base - r) + '" r="' + r + '" fill="' + cssM('--simbolo') + '" fill-opacity=".35" stroke="' + cssM('--ink-2') + '" stroke-width="1"/>' +
+        '<polyline points="' + (rmax + 2) + ',' + topo + ' ' + (2 * rmax + 10) + ',' + (y - 4) + '" fill="none" stroke="' + cssM('--ink-3') + '" stroke-dasharray="2 2"/>' +
         '<text x="' + (2 * rmax + 14) + '" y="' + y + '">' + nf(v) + (v === 1 ? ' caso' : ' casos') + '</text>';
     });
     const H = Math.ceil(Math.max(base + 2, yAnt + 4)), W = Math.ceil(2 * rmax + 90);
     return '<svg class="circ" width="' + W + '" height="' + H + '" role="img" aria-label="Círculos de referência: ' + ref.map(v => nf(v) + (v === 1 ? ' caso' : ' casos')).join(', ') + '">' + corpo + '</svg>';
   }
   function legenda() {
-    let h = '<button type="button" class="leg-tog" aria-expanded="' + legAberta + '" aria-controls="legCorpo">Legenda</button><div class="leg-corpo" id="legCorpo">' +
-      '<span class="leg-titulo">' + TITULO_LEG[S.ind] + '</span>' + (S.ind === 'oe' ? '<div class="lsub">considerando o número de mulheres</div>' : '') + '<div class="lsub">' + C.TIPOS[S.tipo] + ' · ' + C.nomePer(S.per) + ' · ' + (S.reg ? esc(nomeReg(S.reg)) : 'Paraíba') + '</div>';
+    let h = '<button type="button" class="leg-tog" aria-expanded="' + legAberta + '" aria-controls="legCorpo"><span class="sr">Legenda: </span><span class="leg-titulo">' + TITULO_LEG[S.ind] + '</span></button>' +
+      '<div class="leg-corpo" id="legCorpo">' + (S.ind === 'oe' ? '<div class="lsub">considerando o número de mulheres</div>' : '') + '<div class="lsub">' + C.TIPOS[S.tipo] + ' · ' + C.nomePer(S.per) + ' · ' + (S.reg ? esc(nomeReg(S.reg)) : 'Paraíba') + '</div>';
     const ps = C.F.map(f => f.properties).filter(noRecorte);
+    let notas = '';
     if (S.ind === 'casos') {
       const soma = ps.reduce((s, p) => s + casosSel(p), 0), sem = ps.filter(p => !casosSel(p)).length;
-      h += legendaCirculos() + '<small>O tamanho do círculo segue o número de casos. ' + (S.reg ? 'Região' : 'Paraíba') + ': ' + nf(soma) + ' casos. ' + nf(sem) + (sem === 1 ? ' município' : ' municípios') + ' sem nenhum caso.</small>';
+      h += legendaCirculos();
+      notas = '<small>O tamanho do círculo segue o número de casos. ' + (S.reg ? 'Região' : 'Paraíba') + ': ' + nf(soma) + ' casos. ' + nf(sem) + (sem === 1 ? ' município' : ' municípios') + ' sem nenhum caso.</small>';
     } else {
       const n = CL.cores.map(() => 0); ps.forEach(p => n[classeDe(valor(p))]++);
       const nmax = Math.max(1, ...n), ref = S.ind === 'taxa' ? C.taxaEstado(S.tipo, S.per) : 1, iRef = classeDe(ref);
       CL.rot.forEach((r, i) => {
-        h += '<div class="row" data-n="' + n[i] + '" data-rot="' + esc(r) + '"' + (CL.lim ? ' data-lim="' + CL.lim[i] + '"' : '') + '><span class="sw" style="background:' + css(CL.cores[i]) + '"></span><span class="rot">' + r +
+        h += '<div class="row" data-n="' + n[i] + '" data-rot="' + esc(r) + '"' + (CL.lim ? ' data-lim="' + CL.lim[i] + '"' : '') + '><span class="sw" style="background:' + cssM(CL.cores[i]) + '"></span><span class="rot">' + r +
           (CL.lim ? '<small class="lim">' + CL.lim[i] + '</small>' : '') + (S.ind === 'taxa' && i === iRef ? '<small class="media">média da Paraíba</small>' : '') + '</span>' +
           (CL.fixas ? '<span class="hist" style="width:' + Math.round(26 * n[i] / nmax) + 'px"></span>' : '') + '<span class="cont">' + nf(n[i]) + '</span></div>';
       });
       const nInst = ps.filter(p => casosSel(p) < MIN_CASOS).length;
       if (destacarPoucos) h += '<div class="row inst"><span class="sw hach"></span><span class="rot">Menos de 10 casos: valor instável</span><span class="cont">' + nf(nInst) + '</span></div>';
-      h += '<small>' + (S.ind === 'taxa' ? 'Média da Paraíba: ' + nf(ref, 1) + ' casos por 100 mil mulheres por ano.' + (S.reg ? ' Média da ' + esc(nomeReg(S.reg)) + ': ' + nf(C.taxaRegiao(S.reg, S.tipo, S.per), 1) + '.' : '')
+      notas = '<small>' + (S.ind === 'taxa' ? 'Média da Paraíba: ' + nf(ref, 1) + ' casos por 100 mil mulheres por ano.' + (S.reg ? ' Média da ' + esc(nomeReg(S.reg)) + ': ' + nf(C.taxaRegiao(S.reg, S.tipo, S.per), 1) + '.' : '')
         : 'Esperado: os casos que o município teria se notificasse como a média da Paraíba.') + ' Número à direita: municípios em cada faixa' + (S.reg ? ', na região' : '') + '.</small>';
-      h += '<small>' + (S.ind === 'taxa' ? 'As faixas de cor são fixas e valem para qualquer ano ou período. Saíram das taxas anuais dos municípios de 2019 a 2024, divididas em 5 grupos de tamanho parecido e arredondadas.'
+      notas += '<small>' + (S.ind === 'taxa' ? 'As faixas de cor são fixas e valem para qualquer ano ou período. Saíram das taxas anuais dos municípios de 2019 a 2024, divididas em 5 grupos de tamanho parecido e arredondadas.'
         : 'Os números menores são os limites de cada faixa (1 = igual à média). Nome técnico: observado ÷ esperado.') + '</small>';
     }
+    h += '<details class="leg-ler"' + (lerAberto ? ' open' : '') + '><summary>Como ler esta legenda</summary>' + notas + '</details>';
     $('leg').innerHTML = h + '</div>';
     $('leg').classList.toggle('aberta', legAberta);
   }
@@ -275,6 +324,7 @@ WS.mapa = (function () {
     $('mapatitulo').textContent = filtrosTexto();
     desenharSimbolos(); estilizar(); legenda(); ranking(); tabelaMapa();
     if (S.sel) ficha();
+    if (map && estadoB && rotulos.length) reenquadrar();
   }
 
   /* ---------- ficha do município ---------- */
@@ -496,17 +546,17 @@ WS.mapa = (function () {
       const cv = document.createElement('canvas'); cv.width = W * E; cv.height = H * E;
       const g = cv.getContext('2d'); g.scale(E, E);
       const sans = '"IBM Plex Sans", system-ui, sans-serif', serif = '"IBM Plex Serif", Georgia, serif';
-      g.fillStyle = css('--bg'); g.fillRect(0, 0, W, H);
-      g.fillStyle = css('--ink'); g.font = '600 21px ' + serif; g.fillText(TITULO_LEG[S.ind], 20, 34);
-      g.fillStyle = css('--ink-2'); g.font = '14px ' + sans; g.fillText(C.TIPOS[S.tipo] + ' · ' + C.nomePer(S.per) + ' · ' + (S.reg ? nomeReg(S.reg) : 'Paraíba') + (S.ind === 'oe' ? ' · considerando o número de mulheres' : ''), 20, 58);
+      g.fillStyle = cssM('--bg'); g.fillRect(0, 0, W, H);
+      g.fillStyle = cssM('--ink'); g.font = '600 21px ' + serif; g.fillText(TITULO_LEG[S.ind], 20, 34);
+      g.fillStyle = cssM('--ink-2'); g.font = '14px ' + sans; g.fillText(C.TIPOS[S.tipo] + ' · ' + C.nomePer(S.per) + ' · ' + (S.reg ? nomeReg(S.reg) : 'Paraíba') + (S.ind === 'oe' ? ' · considerando o número de mulheres' : ''), 20, 58);
       // mapa
       g.save(); g.translate(0, TOPO); g.beginPath(); g.rect(0, 0, sz.x, sz.y); g.clip();
-      g.fillStyle = css('--surface-2'); g.fillRect(0, 0, sz.x, sz.y);
+      g.fillStyle = cssM('--surface-2'); g.fillRect(0, 0, sz.x, sz.y);
       const pad = {};
       camada.eachLayer(l => {
         const o = l.options, m = /url\(#hach-(\d)\)/.exec(o.fillColor || '');
         caminho(g, l.feature.geometry);
-        g.globalAlpha = o.fillOpacity; g.fillStyle = m ? (pad[m[1]] = pad[m[1]] || padraoCanvas(g, css(CL.cores[+m[1]]))) : o.fillColor; g.fill('evenodd');
+        g.globalAlpha = o.fillOpacity; g.fillStyle = m ? (pad[m[1]] = pad[m[1]] || padraoCanvas(g, cssM(CL.cores[+m[1]]))) : o.fillColor; g.fill('evenodd');
         g.globalAlpha = 1; g.strokeStyle = o.color; g.lineWidth = o.weight; g.stroke();
       });
       [camRegioes, camEstado].forEach(cam => cam && cam.eachLayer(l => { const o = l.options; if (!o.opacity) return; caminho(g, l.feature.geometry); g.globalAlpha = o.opacity; g.strokeStyle = o.color; g.lineWidth = o.weight; g.stroke(); g.globalAlpha = 1; }));
@@ -519,39 +569,39 @@ WS.mapa = (function () {
       rotulos.forEach(mk => {
         if (!mk.getElement() || mk.getElement().style.visibility === 'hidden') return;
         const pt = map.latLngToContainerPoint(mk.getLatLng()), nome = mk.options.title, esq = mk.getElement().classList.contains('esq'), tx = esq ? pt.x - 6 - g.measureText(nome).width : pt.x + 6;
-        g.fillStyle = css('--ink'); if (S.ind !== 'casos') { g.beginPath(); g.arc(pt.x, pt.y, 2.5, 0, 2 * Math.PI); g.fill(); }
-        g.strokeStyle = css('--bg'); g.lineWidth = 3; g.strokeText(nome, tx, pt.y - 4); g.fillText(nome, tx, pt.y - 4);
+        g.fillStyle = cssM('--ink'); if (S.ind !== 'casos') { g.beginPath(); g.arc(pt.x, pt.y, 2.5, 0, 2 * Math.PI); g.fill(); }
+        g.strokeStyle = cssM('--bg'); g.lineWidth = 3; g.strokeText(nome, tx, pt.y - 4); g.fillText(nome, tx, pt.y - 4);
       });
       // barra de escala
       const y0 = sz.y / 2, m100 = map.distance(map.containerPointToLatLng([0, y0]), map.containerPointToLatLng([100, y0]));
       const km = [1, 2, 5, 10, 20, 50, 100, 200].filter(k => k * 1000 / m100 * 100 <= 140).pop() || 1, px = km * 1000 / m100 * 100;
-      g.fillStyle = css('--ink-2'); g.fillRect(16, sz.y - 22, px, 2); g.fillRect(16, sz.y - 28, 1.5, 8); g.fillRect(16 + px - 1.5, sz.y - 28, 1.5, 8);
+      g.fillStyle = cssM('--ink-2'); g.fillRect(16, sz.y - 22, px, 2); g.fillRect(16, sz.y - 28, 1.5, 8); g.fillRect(16 + px - 1.5, sz.y - 28, 1.5, 8);
       g.font = '12px ' + sans; g.fillText(km + ' km', 20 + px, sz.y - 18);
       g.restore();
       // legenda
       let x = sz.x + 20, y = TOPO + 24;
-      g.fillStyle = css('--ink'); g.font = '600 14px ' + sans; y = quebrar(g, TITULO_LEG[S.ind], x, y, LEG - 36, 18) + 4;
+      g.fillStyle = cssM('--ink'); g.font = '600 14px ' + sans; y = quebrar(g, TITULO_LEG[S.ind], x, y, LEG - 36, 18) + 4;
       g.font = '13px ' + sans;
       const ps = C.F.map(f => f.properties).filter(noRecorte);
       if (S.ind === 'casos' && ESC) {
         const ref = [1, 10, 100, 1000, 10000].filter(v => v <= ESC.vmax).slice(-3);
         ref.slice().reverse().forEach(v => {
           const r = raio(v); y += r + 4;
-          g.beginPath(); g.arc(x + R_MAX, y, r, 0, 2 * Math.PI); g.globalAlpha = 0.4; g.fillStyle = css('--simbolo'); g.fill(); g.globalAlpha = 1;
-          g.strokeStyle = css('--ink-2'); g.lineWidth = 1; g.stroke(); g.fillStyle = css('--ink'); g.fillText(nf(v) + (v === 1 ? ' caso' : ' casos'), x + 2 * R_MAX + 12, y + 4); y += r + 6;
+          g.beginPath(); g.arc(x + R_MAX, y, r, 0, 2 * Math.PI); g.globalAlpha = 0.4; g.fillStyle = cssM('--simbolo'); g.fill(); g.globalAlpha = 1;
+          g.strokeStyle = cssM('--ink-2'); g.lineWidth = 1; g.stroke(); g.fillStyle = cssM('--ink'); g.fillText(nf(v) + (v === 1 ? ' caso' : ' casos'), x + 2 * R_MAX + 12, y + 4); y += r + 6;
         });
-        g.fillStyle = css('--ink-2'); g.font = '12px ' + sans; y = quebrar(g, 'O tamanho do círculo segue o número de casos.', x, y + 12, LEG - 36, 16);
+        g.fillStyle = cssM('--ink-2'); g.font = '12px ' + sans; y = quebrar(g, 'O tamanho do círculo segue o número de casos.', x, y + 12, LEG - 36, 16);
       } else {
         const n = CL.cores.map(() => 0); ps.forEach(p => n[classeDe(valor(p))]++);
-        CL.rot.forEach((r, i) => { g.fillStyle = css(CL.cores[i]); g.fillRect(x, y - 10, 18, 12); g.fillStyle = css('--ink'); g.fillText(r + ' (' + nf(n[i]) + ')', x + 26, y); y += 20; });
-        g.fillStyle = padraoCanvas(g, css('--q2')); g.fillRect(x, y - 10, 18, 12); g.fillStyle = css('--ink');
+        CL.rot.forEach((r, i) => { g.fillStyle = cssM(CL.cores[i]); g.fillRect(x, y - 10, 18, 12); g.fillStyle = cssM('--ink'); g.fillText(r + ' (' + nf(n[i]) + ')', x + 26, y); y += 20; });
+        g.fillStyle = padraoCanvas(g, cssM('--q2')); g.fillRect(x, y - 10, 18, 12); g.fillStyle = cssM('--ink');
         g.fillText('Menos de 10 casos: valor instável (' + nf(ps.filter(p => casosSel(p) < MIN_CASOS).length) + ')', x + 26, y); y += 24;
-        g.fillStyle = css('--ink-2'); g.font = '12px ' + sans;
+        g.fillStyle = cssM('--ink-2'); g.font = '12px ' + sans;
         y = quebrar(g, (S.ind === 'taxa' ? 'Média da Paraíba: ' + nf(C.taxaEstado(S.tipo, S.per), 1) + ' casos por 100 mil mulheres por ano. Faixas fixas para qualquer período.'
           : 'Limites das faixas: 0,5 · 0,8 · 1,25 · 2 (1 = igual à média). Nome técnico: observado ÷ esperado.') + ' Entre parênteses: municípios em cada faixa.', x, y, LEG - 36, 16);
       }
       // fonte
-      g.fillStyle = css('--ink-3'); g.font = '12px ' + sans;
+      g.fillStyle = cssM('--ink-3'); g.font = '12px ' + sans;
       g.fillText('Fonte: SINAN/TABNET (Ministério da Saúde), notificações de 2019 a 2024; IBGE, Censo 2022 e malha municipal. Gerado em ' + new Date().toLocaleDateString('pt-BR') + ' · github.com/AnaCAmim/TCC', 20, H - 20);
       const nome = 'mapa_' + S.ind + '_' + S.tipo + '_' + (S.per === 'all' ? '2019-2024' : S.per) + (S.reg ? '_regiao' + S.reg : '') + '.png';
       await new Promise((ok, erro) => cv.toBlob(b => {
@@ -570,7 +620,7 @@ WS.mapa = (function () {
       camRegioes = L.geoJSON({ type: 'FeatureCollection', features: C.CONTORNOS.regioes.map(r => ({ type: 'Feature', properties: { cod: r.cod }, geometry: r.geom })) },
         { pane: 'regioes', renderer: L.svg({ pane: 'regioes' }), interactive: false, style: estiloRegiao }).addTo(map);
       camEstado = L.geoJSON({ type: 'Feature', properties: {}, geometry: C.CONTORNOS.estado }, { pane: 'estado', renderer: L.svg({ pane: 'estado' }), interactive: false,
-        style: () => ({ fill: false, color: css('--ink'), weight: 2.4, opacity: 0.9 }) }).addTo(map);
+        style: () => ({ fill: false, color: cssM('--ink'), weight: 2.4, opacity: 0.9 }) }).addTo(map);
     }
     rotulos = POLOS.map(n => C.F.find(f => f.properties.nome === n)).filter(Boolean).map(f => L.marker(centro[f.properties.cod], {
       pane: 'rotulos', interactive: false, keyboard: false, title: f.properties.nome,
@@ -582,7 +632,7 @@ WS.mapa = (function () {
   /* ---------- início ---------- */
   function iniciar(calc) {
     C = calc;
-    map = L.map('map', { zoomSnap: 0.25, attributionControl: false, keyboard: true, maxBoundsViscosity: 0.9 }).setView([-7.12, -36.8], 7.5);
+    map = L.map('map', { zoomSnap: 0.1, attributionControl: false, keyboard: true, maxBoundsViscosity: 0.9 }).setView([-7.12, -36.8], 7.5);
     tip = $('tip');
     const alfabetica = [...C.F].sort((a, b) => a.properties.nome.localeCompare(b.properties.nome, 'pt'));
     ORDEM = alfabetica.map(f => f.properties.cod);
@@ -591,29 +641,30 @@ WS.mapa = (function () {
       centro[f.properties.cod] = centroide(f.geometry);
       ligar(l, f.properties.cod, l);
     } });
-    // vista final calculada ANTES de pôr as camadas no mapa: cada geometria é projetada uma vez só (abertura mais leve)
-    estadoB = camada.getBounds();
-    CL = classes(); legenda();
-    map.fitBounds(estadoB, Object.assign(areaLivre(), { animate: false }));
-    zoomInicial = map.getZoom();
-    map.setMinZoom(Math.max(4, zoomInicial - 1.5)); map.setMaxZoom(11);
-    camada.addTo(map);
-    // referências: regiões de saúde, contorno do estado, círculos, rótulos das cidades-polo
-    [['regioes', 410], ['estado', 415], ['simbolos', 420], ['rotulos', 640]].forEach(([n, z]) => { const p = map.createPane(n); p.style.zIndex = z; if (n !== 'simbolos') p.style.pointerEvents = 'none'; });
-    rSimb = L.svg({ pane: 'simbolos' }); grupoSimb = L.layerGroup().addTo(map);
     const Fonte = L.Control.extend({ options: { position: 'bottomleft' }, onAdd: () => { const d = L.DomUtil.create('div', 'fonte-mapa'); d.textContent = 'Fonte: SINAN/TABNET, 2019 a 2024; IBGE, Censo 2022 e malha municipal'; return d; } });
     new Fonte().addTo(map);
     L.control.scale({ position: 'bottomleft', imperial: false, maxWidth: 110 }).addTo(map);
     // legenda como controle do mapa, acima da escala e da fonte: fica visível também com a ficha aberta
     const Legenda = L.Control.extend({ options: { position: 'bottomleft' }, onAdd: () => { const d = $('leg'); L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d); return d; } });
     new Legenda().addTo(map);
-    $('leg').addEventListener('click', e => { if (e.target.closest('.leg-tog')) { legAberta = !legAberta; legenda(); } });
+    $('leg').addEventListener('click', e => { if (e.target.closest('.leg-tog')) { legAberta = !legAberta; legenda(); reenquadrar(); } });
+    $('leg').addEventListener('toggle', e => { if (e.target.matches('details.leg-ler') && e.target.open !== lerAberto) { lerAberto = e.target.open; reenquadrar(); } }, true);
     const Estado = L.Control.extend({ options: { position: 'topleft' }, onAdd: () => {
       const d = L.DomUtil.create('div', 'leaflet-bar ctl-estado'), b = L.DomUtil.create('button', '', d);
       b.type = 'button'; b.id = 'verEstado'; b.setAttribute('aria-label', 'Ver a Paraíba inteira'); b.title = 'Ver a Paraíba inteira'; b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>';
       L.DomEvent.disableClickPropagation(d); b.addEventListener('click', () => enquadrar(estadoB));
       return d; } });
     new Estado().addTo(map);
+    // vista final calculada ANTES de pôr as camadas no mapa: cada geometria é projetada uma vez só (abertura mais leve)
+    estadoB = camada.getBounds();
+    CL = classes(); legenda();
+    map.fitBounds(estadoB, Object.assign(areaLivre(estadoB), { animate: false }));
+    zoomInicial = map.getZoom();
+    map.setMinZoom(Math.max(4, zoomInicial - 1.5)); map.setMaxZoom(11);
+    camada.addTo(map);
+    // referências: regiões de saúde, contorno do estado, círculos, rótulos das cidades-polo
+    [['regioes', 410], ['estado', 415], ['simbolos', 420], ['rotulos', 640]].forEach(([n, z]) => { const p = map.createPane(n); p.style.zIndex = z; if (n !== 'simbolos') p.style.pointerEvents = 'none'; });
+    rSimb = L.svg({ pane: 'simbolos' }); grupoSimb = L.layerGroup().addTo(map);
     // teclado: Tab percorre os municípios (ordem alfabética), a etiqueta aparece acima, Enter abre a ficha
     camada.eachLayer(l => {
       const el = l.getElement(), cod = l.feature.properties.cod;
@@ -633,6 +684,8 @@ WS.mapa = (function () {
     map.on('click movestart zoomstart', () => { if (dicaCod) { esconderDica(); estilizar(); } });
     limitarArraste();   // o arraste não sai da Paraíba (com margem)
     map.on('zoomend moveend resize', arrumarRotulos);
+    map.on('dragstart', () => { vistaAuto = false; });
+    map.on('zoomstart', () => { if (!enquadrando) vistaAuto = false; });
 
     $('per').innerHTML = '<option value="all">2019 a 2024 (soma)</option>' + C.ANOS.map(a => '<option value="' + a + '">' + a + '</option>').join('');
     ['ind', 'tipo', 'per'].forEach(id => $(id).addEventListener('change', e => { S[id] = e.target.value; atualizar(); }));
@@ -642,7 +695,7 @@ WS.mapa = (function () {
       porMacro[m].map(c => '<option value="' + c + '">' + esc(C.REG[c].nome) + ' (' + C.munsRegiao(c).length + ' municípios)</option>').join('') + '</optgroup>').join('');
     $('reg').addEventListener('change', e => { S.reg = e.target.value; atualizar(); enquadrar(); });
     $('verRegioes').addEventListener('change', e => { verRegioes = e.target.checked; estilizar(); });
-    $('destacarPoucos').addEventListener('change', e => { destacarPoucos = e.target.checked; estilizar(); legenda(); });
+    $('destacarPoucos').addEventListener('change', e => { destacarPoucos = e.target.checked; estilizar(); legenda(); reenquadrar(); });
     $('baixarPng').addEventListener('click', baixarPNG);
     $('lista').innerHTML = C.F.map(f => '<option value="' + esc(f.properties.nome) + '">').join('');
     const buscar = txt => {
