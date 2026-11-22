@@ -5,6 +5,8 @@ WS.util = (function () {
   const $ = id => document.getElementById(id);
   // número no formato brasileiro (1.234,5)
   const nf = (v, d = 0) => v == null || !isFinite(v) ? '–' : v.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+  // porcentagem para leitura rápida: sem casas acima de 10%; uma casa até 10%
+  const np = v => v == null || !isFinite(v) ? '–' : (v >= 10 ? nf(v, 0) : v > 0 && v < 0.1 ? 'menos de 0,1' : nf(v, 1)) + '%';
   const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
   const semAc = s => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
   const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -35,10 +37,10 @@ WS.util = (function () {
   function barra100(itens) {
     const tot = itens.reduce((s, i) => s + i.n, 0), pct = n => (tot ? 100 * n / tot : 0);
     if (!tot) return '<p class="hint">Nenhuma notificação de 2019 a 2024.</p>';
-    return '<div class="barra100" role="img" aria-label="' + esc(itens.map(i => i.rot + ': ' + nf(i.n) + ' (' + nf(pct(i.n), 1) + '%)').join('; ')) + '">' +
+    return '<div class="barra100" role="img" aria-label="' + esc(itens.map(i => i.rot + ': ' + nf(i.n) + ' (' + np(pct(i.n)) + ')').join('; ')) + '">' +
       itens.filter(i => i.n).map(i => '<span style="width:' + pct(i.n) + '%;background:' + i.cor + '"></span>').join('') + '</div>' +
       '<ul class="leg100">' + itens.map(i => '<li data-k="' + i.k + '"><span class="sw" style="background:' + i.cor + '"></span><span>' + i.rot + ': <b>' + nf(i.n) + '</b> ' +
-        (i.n === 1 ? 'caso' : 'casos') + ' (<span class="pct">' + nf(pct(i.n), 1) + '%</span>)</span></li>').join('') + '</ul>';
+        (i.n === 1 ? 'caso' : 'casos') + ' (<span class="pct">' + np(pct(i.n)) + '</span>)</span></li>').join('') + '</ul>';
   }
-  return { $, nf, css, semAc, esc, toast, copiar, baixar, barra100 };
+  return { $, nf, np, css, semAc, esc, toast, copiar, baixar, barra100 };
 })();
