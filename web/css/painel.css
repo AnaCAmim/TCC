@@ -37,6 +37,12 @@
   --warn-bg:#2e2810; --warn-ink:#f0d88f;
   --base-mapa:#cdc9c0; --simbolo:#d95f02;
 }
+/* Canvas claro: no tema escuro, o mapa (com legenda, escala, fonte e botões) e o título do mapa mantêm os tons do tema claro.
+   Com fundo escuro, as classes mais claras (perto da média, taxas baixas) brilhavam mais que as escuras e invertiam "escuro = mais". */
+@media (prefers-color-scheme:dark){
+  :root:where(:not([data-theme="light"])) :is(#map,#mapatitulo){color:#1b1a17;color-scheme:light; --bg:#fbfaf8; --surface:#fbfaf8; --surface-2:#f1efea; --line:#dcd9d1; --borda:#8a867d; --ink:#1b1a17; --ink-2:#4b4943; --ink-3:#65625b; --accent:#0e4f5c; --accent-soft:#e2edef; --on-accent:#fff; --barra:#87837a; --barra-claro:#c9c5bc; --warn-bg:#fbf3df; --warn-ink:#6b4e00; --base-mapa:#e4e1da;}
+}
+:root[data-theme="dark"] :is(#map,#mapatitulo){color:#1b1a17;color-scheme:light; --bg:#fbfaf8; --surface:#fbfaf8; --surface-2:#f1efea; --line:#dcd9d1; --borda:#8a867d; --ink:#1b1a17; --ink-2:#4b4943; --ink-3:#65625b; --accent:#0e4f5c; --accent-soft:#e2edef; --on-accent:#fff; --barra:#87837a; --barra-claro:#c9c5bc; --warn-bg:#fbf3df; --warn-ink:#6b4e00; --base-mapa:#e4e1da;}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
 body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);display:flex;flex-direction:column}
@@ -86,19 +92,25 @@ select,input[type=search],input[type=text]{width:100%;font:inherit;padding:7px 9
 .leaflet-bar a,.leaflet-touch .leaflet-bar a{width:44px;height:44px;line-height:44px;font-size:20px;background:var(--bg);color:var(--ink);border-radius:0!important;border-bottom-color:var(--line)}
 .leaflet-bar a:hover{background:var(--surface-2)}
 .maptitle{position:absolute;left:62px;top:12px;z-index:550;margin:0;max-width:calc(100% - 420px);background:var(--bg);border:1px solid var(--line);border-radius:2px;padding:5px 10px;font:600 14px/1.35 var(--sans)}
-.legend{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:2px;padding:9px 11px;font-size:13px;width:236px;max-height:calc(100vh - 300px);overflow:auto}
-.legend .leg-tog{display:none}
-.legend .leg-titulo{display:block;font-weight:600;margin-bottom:4px}
+.legend{background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:2px;padding:4px 10px 7px;font-size:12.5px;line-height:1.4;width:max-content;min-width:200px;max-width:min(460px,calc(100vw - 40px));max-height:calc(100vh - 380px);overflow:auto}
+.legend .leg-tog{display:block;border:0;background:none;color:var(--ink);font:600 13px/1.35 var(--sans);padding:3px 0;min-height:28px;cursor:pointer;width:100%;text-align:left}
+.legend .leg-tog::after{content:' ▾';color:var(--ink-3)}
+.legend:not(.aberta) .leg-tog::after{content:' ▸'}
+.legend:not(.aberta) .leg-corpo{display:none}
+.legend .leg-ler{margin-top:5px}
+.legend .leg-ler summary{cursor:pointer;color:var(--accent);font-size:12px;min-height:24px;line-height:24px}
+.legend .leg-ler small{max-width:330px;white-space:normal}
+.legend .leg-titulo{font-weight:600}
 .legend b{display:block;margin-bottom:6px}
-.legend .row{display:flex;align-items:center;gap:8px;margin:3px 0}
+.legend .row{display:flex;align-items:center;gap:8px;margin:2px 0;white-space:nowrap}
 .legend .sw{width:18px;height:12px;border-radius:1px;flex:none;border:1px solid rgba(0,0,0,.15)}
-.legend small{display:block;color:var(--ink-3);margin-top:6px}
-.legend .lsub{color:var(--ink-3);margin:-4px 0 6px}
+.legend small{display:block;color:var(--ink-3);margin-top:4px}
+.legend .lsub{color:var(--ink-3);margin:0 0 4px}
 .legend .rot{flex:1}
 .legend .hist{height:6px;background:var(--barra);flex:none;border-radius:1px}
 .legend .cont{min-width:2.2em;text-align:right;color:var(--ink-2);font-variant-numeric:tabular-nums}
 .legend .media{color:var(--ink)}
-.legend .rot small{display:block;margin:0;font-size:12px;color:var(--ink-3)}
+.legend .rot small{display:inline;margin:0 0 0 6px;font-size:11.5px;color:var(--ink-3)}
 .legend .rot small.media{color:var(--ink-2)}
 .ind5 .tec{font-size:12px;color:var(--ink-3);margin-top:2px}
 .ind5 .it-oe .v{font-size:19px}
@@ -278,11 +290,9 @@ footer{background:var(--bg);border-top:1px solid var(--line);font-size:12px;colo
   #mapwrap.com-ficha .legend,#mapwrap.com-ficha .leaflet-bottom,#mapwrap.com-ficha .ctl-estado{display:none}
   .grid2{grid-template-columns:1fr}
   .ind dl{grid-template-columns:1fr}
-  .legend{width:auto;max-width:220px;font-size:12px;max-height:50vh}
-  .legend .leg-tog{display:block;border:0;background:none;color:var(--ink);font:600 13px var(--sans);padding:2px 0;min-height:32px;cursor:pointer}
-  .legend .leg-tog::after{content:' ▸'}
-  .legend.aberta .leg-tog::after{content:' ▾'}
-  .legend:not(.aberta) .leg-corpo{display:none}
+  .legend{width:auto;min-width:0;max-width:calc(100vw - 40px);font-size:12px;max-height:50vh}
+  .legend .row{white-space:normal}
+  .legend .leg-tog{font-size:13px;min-height:32px}
   .cmpsel{grid-template-columns:1fr}
   .kpi{border-right:0;margin-right:0;padding-right:0;width:50%}
 }
