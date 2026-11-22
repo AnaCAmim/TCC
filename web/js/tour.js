@@ -9,13 +9,13 @@ WS.tour = (function () {
     const PASSOS = [
       { t: 'Mapa da taxa', x: 'Cor de cada município: taxa de notificação por 100 mil mulheres por ano. Tons mais escuros indicam taxas maiores.',
         ir: () => { irMapa(); mapa.definir('reg', ''); mapa.definir('tipo', 'total'); mapa.definir('per', 'all'); mapa.definir('ind', 'taxa'); } },
-      { t: 'Observado ÷ esperado', x: 'Cada município comparado com o estado. Azul: abaixo do esperado. Vermelho: acima. O ranking "10 menores" lista os valores mais baixos entre os municípios com pelo menos 10 casos.',
+      { t: 'Comparação com a média da Paraíba', x: 'Mostra se cada município notifica mais ou menos que a média da Paraíba, considerando o número de mulheres. Roxo: abaixo da média. Laranja: acima. O ranking "10 menores" lista os mais abaixo, entre os municípios com pelo menos 10 casos.',
         ir: () => { irMapa(); mapa.definir('ind', 'oe'); } },
-      { t: 'Ficha de ' + sousa.nome, x: 'A ficha abre com uma frase-resumo. Em seguida vêm os 5 indicadores comparados com o estado e, depois, os contextos.',
+      { t: 'Ficha de ' + sousa.nome, x: 'A ficha abre com uma frase-resumo. Em seguida vêm os 5 indicadores, cada um ao lado da média da Paraíba. Depois vêm os contextos.',
         ir: () => { mapa.definir('ind', 'oe'); location.hash = '#mapa-' + sousa.cod; } },
-      { t: 'Faixa etária em taxa', x: 'A taxa por 100 mil mulheres da faixa permite comparar idades com populações diferentes. O traço marca o estado.',
+      { t: 'Faixa etária em taxa', x: 'A taxa por 100 mil mulheres da faixa permite comparar idades com populações diferentes. O traço marca a média da Paraíba.',
         ir: () => { if (location.hash !== '#mapa-' + sousa.cod) location.hash = '#mapa-' + sousa.cod; setTimeout(mapa.verFaixaTaxa, 450); } },
-      { t: 'Análise', x: 'Principais resultados do estado, calculados dos dados. Cada um traz uma pergunta para a gestão.',
+      { t: 'Análise', x: 'Principais resultados da Paraíba, calculados dos dados. Cada um traz uma pergunta para a gestão.',
         ir: () => { location.hash = '#analise'; setTimeout(() => { const s = $('v-analise').querySelector('.scroll'); if (s) s.scrollTop = 0; }, 80); } },
       { t: 'Como calcular', x: 'Fórmula e exemplo de cada indicador. Todas as contas podem ser refeitas numa planilha.',
         ir: () => { location.hash = '#como-calcular'; } }

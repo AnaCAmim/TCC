@@ -20,7 +20,7 @@
 <header>
   <div class="titulo">
     <h1>Violência contra a mulher na Paraíba</h1>
-    <p class="subt">Notificações por município de residência, 2019 a 2024. Fontes: SINAN/TABNET (Ministério da Saúde) e Censo 2022 (IBGE).</p>
+    <p class="subt">Notificações por município onde a mulher mora, 2019 a 2024. Fontes: Ministério da Saúde (SINAN, o sistema de notificação) e IBGE (Censo 2022).</p>
     <p class="nota-topo">Os números são casos notificados pelos serviços de saúde, não o total de casos que ocorrem.</p>
   </div>
   <nav class="tabs" role="tablist" aria-label="Telas do painel">
@@ -46,7 +46,7 @@
       <select id="ind">
         <option value="taxa">Taxa por 100 mil mulheres por ano</option>
         <option value="casos">Casos notificados</option>
-        <option value="oe">Observado ÷ esperado</option>
+        <option value="oe">Comparação com a média da Paraíba</option>
       </select>
       <p class="hint" id="indhint"></p>
       <label class="ctl" for="tipo">Tipo de violência</label>
@@ -60,7 +60,7 @@
       <select id="per"></select>
       <label class="ctl" for="reg">Região de saúde</label>
       <select id="reg" aria-describedby="reghint"></select>
-      <p class="hint" id="reghint">Recorta mapa, ranking e tabela. As cores mantêm a escala do estado.</p>
+      <p class="hint" id="reghint">Mostra só a região no mapa, no ranking e na tabela. As cores seguem a escala da Paraíba inteira.</p>
       <label class="chk"><input type="checkbox" id="verRegioes" checked> Mostrar limites das regiões de saúde</label>
       <label class="chk"><input type="checkbox" id="destacarPoucos" checked> Destacar municípios com poucos casos</label>
       <label class="ctl" for="busca">Buscar município</label>
@@ -70,7 +70,7 @@
       <div class="btnrow" style="margin-top:0">
         <button class="btn peq" id="verTabela" type="button" aria-pressed="false">Ver como tabela</button>
         <button class="btn peq" id="abrirComparar" type="button">Comparar municípios</button>
-        <button class="btn peq" id="baixarPng" type="button">Baixar mapa (PNG)</button>
+        <button class="btn peq" id="baixarPng" type="button">Baixar mapa (imagem PNG)</button>
       </div>
       </div>
       <div class="rkbox">
@@ -104,10 +104,10 @@
         <div class="alterna" role="group" aria-label="Mostrar a faixa etária como" id="fxAnalise"><button type="button" data-fxa="casos" aria-pressed="true">Casos</button><button type="button" data-fxa="taxa" aria-pressed="false">Taxa por 100 mil/ano</button></div>
         <p class="desc" id="fxdesc">Paraíba, soma de 2019 a 2024, todos os tipos.</p><div id="g-faixa"></div></div>
     </div>
-    <div class="card"><h2>Onde as mulheres foram atendidas</h2><p class="desc">Paraíba, 2019 a 2024, todos os tipos. Local da notificação em relação à região de saúde de residência.</p>
+    <div class="card"><h2>Onde as mulheres foram atendidas</h2><p class="desc">Paraíba, 2019 a 2024, todos os tipos. Lugar da notificação comparado com a região de saúde onde a mulher mora.</p>
       <p class="concl1" id="localfrase"></p><div id="g-local" style="max-width:640px"></div>
-      <p class="nota">Atendimento em outra região pode indicar falta de serviço local ou referência regional; o dado não diz o motivo.</p></div>
-    <div class="card"><h2>Casos por tipo de violência</h2><p class="desc">Paraíba, 2019 a 2024. Casos e taxa anual por 100 mil mulheres.</p><div id="g-tipo" style="max-width:640px"></div></div>
+      <p class="nota">Atendimento em outra região pode indicar falta de serviço local ou referência regional. O dado não diz o motivo.</p></div>
+    <div class="card"><h2>Casos por tipo de violência</h2><p class="desc">Paraíba, 2019 a 2024. Casos e taxa por 100 mil mulheres por ano.</p><div id="g-tipo" style="max-width:640px"></div></div>
     <div class="card">
       <h2>Tabela dos municípios</h2>
       <p class="desc">2019 a 2024. Clique no título da coluna para ordenar e na linha para abrir a ficha. O arquivo traz os 223 municípios no tipo escolhido.</p>
@@ -117,11 +117,11 @@
           <option value="psicologica">Psicológica/moral</option><option value="sexual">Sexual</option>
         </select>
         <input type="search" id="tbusca" placeholder="Filtrar município" aria-label="Filtrar município">
-        <button class="btn peq" id="baixarCsv" type="button">Baixar tabela (CSV)</button>
+        <button class="btn peq" id="baixarCsv" type="button">Baixar tabela (CSV, abre no Excel)</button>
       </div>
       <div class="tbl"><table id="tab"><thead><tr>
         <th data-k="nome" tabindex="0">Município</th><th data-k="pop" tabindex="0">Mulheres</th><th data-k="casos" tabindex="0">Casos</th>
-        <th data-k="taxa" tabindex="0">Taxa por 100 mil/ano</th><th data-k="oe" tabindex="0">Observado ÷ esperado</th>
+        <th data-k="taxa" tabindex="0">Taxa por 100 mil mulheres/ano</th><th data-k="oe" tabindex="0">Comparação com a média (1 = igual)</th>
       </tr></thead><tbody></tbody></table></div>
     </div>
   </div></div></section>
@@ -155,16 +155,16 @@
   </ol>
   <h3>Indicadores</h3>
   <ul class="ind1">
-    <li><b>Casos notificados</b>: fichas do SINAN de mulheres residentes no município.</li>
+    <li><b>Casos notificados</b>: fichas de notificação de mulheres que moram no município.</li>
     <li><b>Taxa por 100 mil mulheres por ano</b>: casos por ano a cada 100 mil mulheres.</li>
     <li><b>Tipos de violência</b>: física, psicológica/moral e sexual.</li>
     <li><b>Faixa etária</b>: idade das mulheres e meninas, em casos ou em taxa.</li>
-    <li><b>Observado ÷ esperado</b>: casos do município em relação ao esperado pela média do estado (1 = igual).</li>
+    <li><b>Comparação com a média da Paraíba</b>: mostra se o município notifica mais ou menos que a média, considerando o número de mulheres. Nome técnico: observado ÷ esperado.</li>
   </ul>
   <h3>Como ler</h3>
-  <p>Valores marcados com * vêm de menos de 10 casos e são instáveis.</p>
+  <p>Valores marcados com * vêm de menos de 10 casos. Um caso a mais ou a menos muda muito o valor.</p>
   <h3>Fontes</h3>
-  <p class="fontes">Notificações: SINAN/TABNET, Ministério da Saúde (extração de outubro de 2026). Mulheres: Censo 2022, IBGE (consulta em 18/11/2026). Regiões de saúde: DATASUS (junho de 2026). Serviços: MUNIC 2023, IBGE.</p>
+  <p class="fontes">Notificações: SINAN (Sistema de Informação de Agravos de Notificação), do Ministério da Saúde, consultado pelo TABNET em outubro de 2026. Mulheres: Censo 2022 do IBGE (Instituto Brasileiro de Geografia e Estatística), consulta em 18/11/2026. Regiões de saúde: DATASUS, o departamento de informática do SUS (junho de 2026). Serviços: MUNIC 2023, pesquisa do IBGE com as prefeituras.</p>
   <div class="btnrow"><button class="btn pri" type="button" id="sobreComecar">Começar</button><button class="btn" type="button" id="sobreTour">Ver o tour</button></div>
 </dialog>
 
@@ -173,7 +173,7 @@
   <h2 id="tourT" tabindex="-1"></h2>
   <p id="tourTxt"></p>
   <div class="btnrow"><button class="btn peq" type="button" id="tourAnt">Anterior</button><button class="btn peq pri" type="button" id="tourProx">Próximo</button><button class="btn peq" type="button" id="tourSair">Sair do tour</button></div>
-  <p class="hint">Setas ← → mudam de passo · Esc sai</p>
+  <p class="hint">As setas do teclado mudam de passo. Esc sai.</p>
 </div>
 
 <div id="impressao"></div>
