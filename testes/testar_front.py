@@ -59,6 +59,31 @@ def npct(v):
     return (fmt(v, 0) if v >= 10 else fmt(v, 1)) + "%"
 
 
+GEOM = """(() => { const m = document.getElementById('map').getBoundingClientRect(), e = PAINEL.enquadramento(), leg = document.getElementById('leg'), pn = document.getElementById('painel');
+    const R = el => { if (!el) return null; const r = el.getBoundingClientRect(); return r.width ? [r.left, r.top, r.right, r.bottom] : null; };
+    return { est: [m.left + e.x0, m.top + e.y0, m.left + e.x1, m.top + e.y1], leg: R(leg), ficha: getComputedStyle(pn).display !== 'none' ? R(pn) : null,
+      ctl: R(document.querySelector('#map .leaflet-top.leaflet-left')), tit: R(document.getElementById('mapatitulo')), mapa: [m.left, m.top, m.right, m.bottom],
+      rol: Math.max(leg.scrollHeight - leg.clientHeight, leg.scrollWidth - leg.clientWidth), linhas: [...leg.querySelectorAll('.row')].map(r => Math.round(r.getBoundingClientRect().height)),
+      ler: !!leg.querySelector('details.leg-ler:not([open]) small'), toca: (() => {
+        // o contorno desenhado do estado toca cada retângulo? (600 pontos da linha + cantos e centro do retângulo dentro do estado)
+        const ep = document.querySelector('.leaflet-estado-pane path'), o = {};
+        if (!ep) return null;
+        const M = ep.getScreenCTM(), inv = M.inverse(), n = ep.getTotalLength(), pts = [];
+        for (let i = 0; i < 600; i++) { const q = ep.getPointAtLength(n * i / 600); pts.push(new DOMPoint(q.x, q.y).matrixTransform(M)); }
+        const fill = (x, y) => ep.isPointInFill(new DOMPoint(x, y).matrixTransform(inv));
+        Object.entries({ leg, ficha: getComputedStyle(pn).display !== 'none' ? pn : null, ctl: document.querySelector('#map .leaflet-top.leaflet-left'), tit: document.getElementById('mapatitulo') }).forEach(([k, el]) => {
+          if (!el) { o[k] = false; return; }
+          const r = el.getBoundingClientRect();
+          o[k] = pts.some(q => q.x > r.left && q.x < r.right && q.y > r.top && q.y < r.bottom) || [[r.left + 1, r.top + 1], [r.right - 1, r.top + 1], [r.left + 1, r.bottom - 1], [r.right - 1, r.bottom - 1], [(r.left + r.right) / 2, (r.top + r.bottom) / 2]].some(([x, y]) => fill(x, y));
+        });
+        return o; })() }; })()"""
+
+
+def bate(a, b):
+    """Retângulos [esq, topo, dir, base] se sobrepõem?"""
+    return bool(a and b) and not (a[2] <= b[0] or a[0] >= b[2] or a[3] <= b[1] or a[1] >= b[3])
+
+
 # ---------- referência: views SQL ----------
 REF = {}
 for r in consulta("SELECT cod_ibge7, nome, periodo, tipo, casos, taxa_100mil_ano, esperado, o_sobre_e FROM websig.vw_indicador_municipio_ano_tipo"):
@@ -295,7 +320,7 @@ with sync_playwright() as pw:
         lin_reg = pg.evaluate("[...document.querySelectorAll('#maptab tbody tr[data-c]')].map(tr => tr.dataset.c)")
         pg.click("#verTabela"); pg.wait_for_timeout(200)
         check(rk and set(rk) <= dentro and set(lin_reg) == dentro and len(lin_reg) == len(dentro) and z1 < z0 and rg["nome"] in pg.inner_text("#mapatitulo")
-              and f"Média da {rg['nome']}: {fmt(rg['taxa'], 1)}" in pg.inner_text("#leg"),
+              and f"Média da {rg['nome']}: {fmt(rg['taxa'], 1)}" in pg.text_content("#leg"),
               f"{modo}: filtro de região de saúde recorta mapa, ranking e tabela ({len(lin_reg)} de {len(dentro)} municípios) e mostra a média da região")
         pg.select_option("#reg", ""); pg.wait_for_timeout(300)
         # Ficha: 5 indicadores comparados com o estado, links "como calcular", aviso de poucos casos
@@ -624,16 +649,49 @@ with sync_playwright() as pw:
                     return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
                     return [lum(getComputedStyle(document.querySelector('.leaflet-container')).backgroundColor), lum(getComputedStyle(document.getElementById('leg')).backgroundColor)]; })()""")
                 escuro = tema == "dark"
-                check(all((x < 0.1) if escuro else (x > 0.6) for x in fundo), f"{rot_base}: fundo do mapa e da legenda seguem o tema ({[round(x, 2) for x in fundo]})")
+                pagina = pg.evaluate("""(() => { const v = getComputedStyle(document.body).backgroundColor.match(/[\\d.]+/g).slice(0, 3).map(Number).map(x => x / 255).map(x => x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4);
+                    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; })()""")
+                check(all(x > 0.6 for x in fundo) and ((pagina < 0.1) if escuro else (pagina > 0.6)),
+                      f"{rot_base}: canvas claro nos dois temas (fundo do mapa e da legenda {[round(x, 2) for x in fundo]}); a interface ao redor segue o tema ({round(pagina, 2)})")
+                if not cel:
+                    # legenda compacta: sem rolagem, uma linha por classe, explicações recolhidas, nada sobre os botões de zoom nem sobre o estado
+                    for ind in ["taxa", "oe"]:
+                        pg.select_option("#ind", ind); pg.wait_for_timeout(400)
+                        g = pg.evaluate(GEOM)
+                        check(g["rol"] <= 1 and max(g["linhas"]) <= 24 and g["ler"] and g["est"][0] >= g["mapa"][0] and g["est"][2] <= g["mapa"][2] and g["est"][3] <= g["mapa"][3] and not bate(g["leg"], g["ctl"]) and not g["toca"]["leg"] and not g["toca"]["ctl"],
+                              f"{rot_base} ({ind}): legenda sem rolagem, uma linha por classe (alturas {g['linhas']}), 'Como ler' recolhido, sem cobrir zoom nem estado")
+                    pg.click("#leg .leg-tog"); pg.wait_for_timeout(200)
+                    fechada = pg.evaluate("getComputedStyle(document.querySelector('#leg .leg-corpo')).display")
+                    pg.click("#leg .leg-tog"); pg.wait_for_timeout(200)
+                    check(fechada == "none" and pg.evaluate("getComputedStyle(document.querySelector('#leg .leg-corpo')).display") != "none", f"{rot_base}: botão recolhe e mostra a legenda inteira")
+                    pg.click("#leg details.leg-ler summary"); pg.wait_for_timeout(300)
+                    g = pg.evaluate(GEOM)
+                    check("Esperado:" in pg.inner_text("#leg") and not g["toca"]["leg"] and not bate(g["leg"], g["ctl"]),
+                          f"{rot_base}: 'Como ler esta legenda' abre as explicações e o mapa se reenquadra sem nada sobre o estado")
+                    pg.click("#leg details.leg-ler summary"); pg.wait_for_timeout(300)
+                    pg.select_option("#ind", "taxa"); pg.wait_for_timeout(300)
                 if cel:
                     fechada = pg.evaluate("getComputedStyle(document.querySelector('#leg .leg-corpo')).display")
                     pg.click("#leg .leg-tog"); pg.wait_for_timeout(200)
                     aberta = pg.evaluate("getComputedStyle(document.querySelector('#leg .leg-corpo')).display")
-                    check(fechada == "none" and aberta != "none", f"{rot_base}: legenda recolhível no celular ({fechada} → {aberta})")
+                    pg.wait_for_timeout(300); g = pg.evaluate(GEOM)
+                    inteiro = g["est"][0] >= g["mapa"][0] and g["est"][2] <= g["mapa"][2] and g["est"][1] >= g["mapa"][1] and g["est"][3] <= g["mapa"][3]
+                    check(fechada == "none" and aberta != "none" and inteiro,
+                          f"{rot_base}: legenda recolhível no celular ({fechada} → {aberta}); aberta, o estado continua inteiro no mapa")
+                    pg.click("#leg .leg-tog"); pg.wait_for_timeout(300)
                 for ind in ["taxa", "oe", "casos"]:
                     pg.select_option("#ind", ind); pg.wait_for_timeout(400)
                     pg.screenshot(path=str(CAP / f"{rot_base}_mapa_{ind}.png"))
                 pg.select_option("#ind", "taxa")
+            if nome in ("1366", "celular"):
+                abrir(pg, MODOS["http"] + "#mapa-" + SUME); pg.wait_for_timeout(900)
+                g = pg.evaluate(GEOM)
+                if not cel:
+                    util = g["ficha"][0] - g["leg"][2]
+                    larg = g["est"][2] - g["est"][0]
+                    check(larg >= 0.6 * util and not any(g["toca"][k] for k in ("leg", "ficha", "ctl", "tit")) and g["est"][2] <= g["ficha"][0] and g["rol"] <= 1,
+                          f"{rot_base}: ficha de Sumé aberta, estado com {larg:.0f} px = {100 * larg / util:.0f}% da largura útil entre a legenda e a ficha ({util:.0f} px; mínimo 60%), sem nada sobreposto")
+                pg.screenshot(path=str(CAP / f"{rot_base}_ficha_sume.png"))
             abrir(pg, MODOS["http"] + "#mapa-" + SOUSA); pg.wait_for_timeout(800)
             rot = f"{nome}_{'claro' if tema == 'light' else 'escuro'}"
             sem_rol = pg.evaluate("document.documentElement.scrollWidth <= innerWidth + 1")
