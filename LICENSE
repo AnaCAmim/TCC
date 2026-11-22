@@ -30,3 +30,8 @@ Componentes de terceiros incluídos neste repositório, com licença própria:
   licença CC0 1.0 Universal (https://github.com/tbrugz/geodata-br/blob/master/LICENSE.md).
 - dados/brutos/: dados públicos do Ministério da Saúde (SINAN/TABNET, DATASUS) e do IBGE,
   com as fontes e datas de acesso em dados/brutos/FONTES.md. Não são cobertos por esta licença.
+
+---
+
+Textos, documentação e capturas de tela (README.md, docs/, dados/brutos/FONTES.md e capturas/):
+licença Creative Commons Atribuição 4.0 Internacional (CC BY 4.0), no arquivo LICENSE-DOCS.
