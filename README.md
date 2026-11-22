@@ -51,7 +51,7 @@ As mesmas fórmulas estão nas views SQL e no painel (`web/js/calculo.js`). O te
 | Taxa por 100 mil mulheres por ano | casos ÷ mulheres × 100.000 ÷ número de anos (6 no acumulado, 1 num ano) | 15 ÷ 34.824 × 100.000 ÷ 6 = 7,2 (estado: 83,9) |
 | Tipos de violência | casos de física, psicológica/moral e sexual (uma notificação pode ter mais de um tipo; não somam o total) | — |
 | Faixa etária | casos por faixa de idade, 2019–2024; e taxa da faixa = casos da faixa ÷ mulheres da faixa × 100.000 ÷ 6 (a faixa "Ignorada" não tem taxa) | mais atingidas: 20 a 29 e 30 a 39 anos (4 casos cada). Estado, 10 a 14 anos: 1.315 ÷ 138.805 × 100.000 ÷ 6 = 157,9 |
-| Observado ÷ esperado | esperado = mulheres do município × (casos do estado ÷ mulheres do estado); O/E = casos ÷ esperado (1 = igual ao estado) | esperado 175,2; 15 ÷ 175,2 = 0,09 |
+| Comparação com a média da Paraíba (observado ÷ esperado) | esperado = mulheres do município × (casos da Paraíba ÷ mulheres da Paraíba); índice = casos ÷ esperado (1 = igual à média) | esperado 175,2 (cerca de 175 casos); 15 ÷ 175,2 = 0,09, ou "cerca de 1/10 das notificações esperadas" |
 
 **Média da região de saúde** (na ficha e na legenda): a mesma taxa, somando os casos e as mulheres dos municípios da região. O observado ÷ esperado continua comparando com o estado.
 
@@ -66,7 +66,7 @@ Views: `vw_indicador_municipio_ano_tipo` (município × período × tipo), `vw_i
 ## O que o painel oferece
 
 - Filtros de indicador, tipo de violência, período (cada ano ou 2019–2024) e **região de saúde** (16 regiões; recorta o mapa, o ranking e a tabela e aproxima o mapa da região).
-- Mapa temático: taxa e observado ÷ esperado em cores, com hachura onde há menos de 10 casos; casos em círculos proporcionais. Contorno do estado, limites das regiões de saúde (liga/desliga), rótulos das cidades-polo, barra de escala e fonte. Legenda com unidade, recorte, municípios por classe e a média do estado. Botões **Ver estado inteiro** e **Baixar mapa (PNG)**, com título, legenda e fonte, para relatório.
+- Mapa temático: taxa e comparação com a média da Paraíba (observado ÷ esperado) em cores, com hachura onde há menos de 10 casos; casos em círculos proporcionais. Contorno do estado, limites das regiões de saúde (liga/desliga), rótulos das cidades-polo, barra de escala e fonte. Legenda com unidade, recorte, municípios por classe e a média da Paraíba. Botões **Ver a Paraíba inteira** e **Baixar mapa (imagem PNG)**, com título, legenda e fonte, para relatório.
 - Ranking dos 10 maiores e dos 10 menores (nos menores entram só municípios com pelo menos 10 casos).
 - **Ficha do município:** frase-resumo calculada no topo (o que olhar primeiro), os 5 indicadores comparados com o estado e com a região de saúde, série anual, tipos, faixa etária ("Faixa mais atingida" e botões **Casos | Taxa por 100 mil/ano**, com a taxa do estado como referência), aviso de poucos casos, link "como calcular" e **Imprimir ficha**.
 - **Onde as mulheres foram atendidas** (contexto, na ficha e na Análise): barra única de 100% com mesma região de saúde, outra região da Paraíba e fora da Paraíba, com número e %. % = casos atendidos na categoria ÷ casos do município × 100. Não é indicador e não diz o motivo.
@@ -91,9 +91,13 @@ Views: `vw_indicador_municipio_ano_tipo` (município × período × tipo), `vw_i
 |---|---|---|
 | ![Tela Análise](capturas/1366_claro_analise.png) | ![Tela Como calcular](capturas/1366_claro_como_calcular.png) | ![Tema escuro](capturas/1366_escuro_mapa_ficha.png) |
 
-| Taxa (ColorBrewer YlOrRd, classes fixas) | Observado ÷ esperado (PuOr) | Casos (símbolos proporcionais) |
+| Taxa (ColorBrewer YlOrRd, classes fixas) | Comparação com a média da Paraíba (PuOr) | Casos (símbolos proporcionais) |
 |---|---|---|
 | ![Mapa da taxa](capturas/1366_claro_mapa_taxa.png) | ![Mapa do observado ÷ esperado no tema escuro](capturas/1366_escuro_mapa_oe.png) | ![Mapa de casos](capturas/1366_claro_mapa_casos.png) |
+
+| Ficha de Sumé (acima da média) | Ficha de Sousa (abaixo da média) | Ficha de João Pessoa |
+|---|---|---|
+| ![Ficha de Sumé](capturas/ficha_resumo_sume.png) | ![Ficha de Sousa](capturas/ficha_resumo_sousa.png) | ![Ficha de João Pessoa](capturas/ficha_resumo_joao_pessoa.png) |
 
 A ficha impressa (botão **Imprimir ficha**) sai numa folha limpa, com fonte e data; os testes geram um exemplo em PDF em `capturas/` (não publicado).
 

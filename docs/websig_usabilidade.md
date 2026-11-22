@@ -216,3 +216,95 @@ Referências:
 - Testes: dados 67, painel 157 (Firefox e WebKit 156), usabilidade 34, 0 falhas. Novos: paletas e classes fixas (iguais em "todos os anos" e em 2024; diferentes por tipo); histograma só no O/E; legenda visível sem cobrir a ficha; foco no título sem moldura; fundo do mapa e da legenda conforme o tema; legenda recolhível no celular; gráficos com uma série destacada; rótulos dentro do mapa; ordem de claridade nas simulações.
 - Lighthouse local (com compressão): celular 98 de desempenho no relatório guardado (quatro rodadas: 93, 97, 98 e 97; mediana 97,5; etapa anterior 97 e 98), computador 100; acessibilidade 100 nos dois.
 - Capturas novas em `capturas/`: `{1366,celular}_{claro,escuro}_mapa_{taxa,oe,casos}.png`, além de `*_mapa_ficha.png` (ficha aberta com a legenda) e `*_analise.png`.
+
+## Revisão dos textos para leitura rápida por gestores (ramo `bases-contexto`, 22/11/2026)
+
+Dados, fórmulas, indicadores e funções não mudaram: só os textos da tela. O front anterior está em `backup/etapa8/`, fora do repositório.
+
+**Problema de partida.** A frase "Notifica bem mais que o estado: 4,64 do esperado" dava a entender que Sumé notifica mais que a Paraíba inteira. O número 4,64 compara Sumé com a **média** da Paraíba, levando em conta o número de mulheres do município.
+
+**Regras adotadas**
+1. A referência é sempre "a média da Paraíba", nunca "o estado" sozinho.
+2. Toda comparação mostra os dois números lado a lado, com unidade.
+3. Observado ÷ esperado em palavras. Acima de 1: "X vezes a média". Abaixo de 1: fração ou porcentagem simples ("cerca de 1/10", "62% do esperado"). O nome técnico só aparece em letra menor e no "Como calcular".
+4. Nome do indicador na tela: "Comparação com a média da Paraíba".
+5. Casos sempre inteiros. Taxas com no máximo 1 casa decimal. Porcentagens sem casas acima de 10%.
+6. Legenda da comparação em palavras, com os limites numéricos em letra menor.
+7. Frase-resumo da ficha calculada, nunca digitada.
+8. Participação do município: "Tem X% das mulheres da Paraíba e Y% dos casos notificados."
+9. Uma ideia por frase. Sem símbolos (÷, ×, ◆) em rótulos principais. Siglas explicadas na primeira vez.
+
+**Como a comparação vira palavras** (`calculo.js`, funções de texto `faixaOE`, `oeCurto`, `casosAprox` e `resumo`)
+
+| Índice | Faixa (legenda e cor) | Forma curta (ranking, etiqueta, ficha) | Frase-resumo |
+|---|---|---|---|
+| menos de 0,5 | muito abaixo da média (menos da metade) | menos de 0,075: "menos de 1/10 do esperado"; de 0,075 a 0,125: "cerca de 1/10 do esperado"; acima: "N% do esperado" | "X registra cerca de 1/10 (ou cerca de N%, arredondado à dezena) das notificações esperadas para o seu número de mulheres." |
+| 0,5 a 0,8 | abaixo da média | "N% do esperado" | igual à linha anterior |
+| 0,8 a 1,25 | perto da média | "N% do esperado" ou "X,X vezes a média" | "X registra notificações perto da média da Paraíba, considerando o número de mulheres." |
+| 1,25 a 2 | acima da média | "X,X vezes a média" | "X registra X,X vezes mais notificações que a média da Paraíba, considerando o número de mulheres." |
+| 2 ou mais | muito acima da média (mais do dobro) | "X,X vezes a média" | igual à linha anterior |
+
+Toda frase-resumo termina com os dois números: "Se seguisse a média da Paraíba, teria cerca de N casos em 6 anos (ou em AAAA); registrou M." Com esperado abaixo de 0,5, o texto diz "menos de 1 caso". Sem nenhum caso: "X não registrou nenhuma notificação de 2019 a 2024."
+
+**Frases geradas** (todos os tipos, 2019 a 2024)
+- Sumé: "Sumé registra 4,6 vezes mais notificações que a média da Paraíba, considerando o número de mulheres. Se seguisse a média da Paraíba, teria cerca de 44 casos em 6 anos; registrou 205."
+- Sousa: "Sousa registra cerca de 1/10 das notificações esperadas para o seu número de mulheres. Se seguisse a média da Paraíba, teria cerca de 175 casos em 6 anos; registrou 15."
+- João Pessoa: "João Pessoa registra 1,4 vezes mais notificações que a média da Paraíba, considerando o número de mulheres. Se seguisse a média da Paraíba, teria cerca de 2.239 casos em 6 anos; registrou 3.049."
+
+### Textos alterados (antes → depois)
+
+| Onde | Antes | Depois |
+|---|---|---|
+| Cabeçalho, subtítulo | Notificações por município de residência, 2019 a 2024. Fontes: SINAN/TABNET (Ministério da Saúde) e Censo 2022 (IBGE). | Notificações por município onde a mulher mora, 2019 a 2024. Fontes: Ministério da Saúde (SINAN, o sistema de notificação) e IBGE (Censo 2022). |
+| Filtro Indicador | Observado ÷ esperado | Comparação com a média da Paraíba |
+| Dica do indicador (taxa) | Casos por ano a cada 100 mil mulheres. Compara municípios de tamanhos diferentes. | Casos por ano a cada 100 mil mulheres. Serve para comparar municípios de tamanhos diferentes. |
+| Dica do indicador (comparação) | Compara com o estado: 1 é igual; abaixo de 1, notifica menos; acima, mais. | Mostra se o município notifica mais ou menos que a média da Paraíba, considerando o número de mulheres. |
+| Filtro Região de saúde | Todo o estado | Toda a Paraíba |
+| Dica da região | Recorta mapa, ranking e tabela. As cores mantêm a escala do estado. | Mostra só a região no mapa, no ranking e na tabela. As cores seguem a escala da Paraíba inteira. |
+| Botões | Baixar mapa (PNG) · Baixar tabela (CSV) | Baixar mapa (imagem PNG) · Baixar tabela (CSV, abre no Excel) |
+| Botão do mapa | Ver estado inteiro | Ver a Paraíba inteira |
+| Título do mapa e da legenda | Observado ÷ esperado (1 = igual ao estado; abaixo de 1, notifica menos) | Comparação com a média da Paraíba, com "considerando o número de mulheres" logo abaixo |
+| Legenda, classes da comparação | menos de 0,5 · 0,5 a 0,8 · 0,8 a 1,25 · 1,25 a 2 · 2 ou mais | muito abaixo da média (menos da metade) · abaixo da média · perto da média · acima da média · muito acima da média (mais do dobro), cada uma com o limite numérico em letra menor |
+| Legenda, nota da comparação | ◆ Classe do estado (1). Números: municípios em cada classe. / Classes fixas em torno de 1 (igual ao estado). | Esperado: os casos que o município teria se notificasse como a média da Paraíba. Número à direita: municípios em cada faixa. / Os números menores são os limites de cada faixa (1 = igual à média). Nome técnico: observado ÷ esperado. |
+| Legenda, taxa | ◆ ao lado da classe da média; "◆ Média do estado: 83,9. Números: municípios em cada classe." | "média da Paraíba" escrito sob a classe; "Média da Paraíba: 83,9 casos por 100 mil mulheres por ano. Número à direita: municípios em cada faixa." |
+| Legenda, faixas da taxa | Classes fixas: quintis das taxas anuais dos municípios de 2019 a 2024 neste tipo, arredondados. Valem para qualquer ano ou período. | As faixas de cor são fixas e valem para qualquer ano ou período. Saíram das taxas anuais dos municípios de 2019 a 2024, divididas em 5 grupos de tamanho parecido e arredondadas. |
+| Legenda, casos | Casos notificados (número de notificações). Área do círculo proporcional ao número de casos. Estado: 10.344 casos; 3 municípios sem caso. | Casos notificados. O tamanho do círculo segue o número de casos. Paraíba: 10.344 casos. 3 municípios sem nenhum caso. |
+| Ranking e etiqueta do mapa (comparação) | Sumé: 4,64× o esperado · Sousa: 0,09× o esperado | Sumé: 4,6 vezes a média (4,64) · Sousa: cerca de 1/10 do esperado (0,09). O índice fica em letra menor e desempata. |
+| Nota do ranking | Inclui só municípios com pelo menos 10 casos no tipo e período. | Só municípios com pelo menos 10 casos neste tipo e período. Na comparação, antes vem: "Comparação com a média da Paraíba, considerando o número de mulheres." |
+| Tabelas (mapa e Análise), coluna | Observado ÷ esperado · Taxa por 100 mil/ano | Comparação com a média (1 = igual) · Taxa por 100 mil mulheres/ano |
+| Rodapé da tabela da Análise | * menos de 10 casos em 6 anos: taxa e observado ÷ esperado instáveis. | * Menos de 10 casos em 6 anos: taxa e comparação com a média instáveis. |
+| Ficha, frase-resumo | **Notifica bem mais que o estado:** 4,64 do esperado (todos os tipos, 2019 a 2024). | **Sumé registra 4,6 vezes mais notificações que a média da Paraíba, considerando o número de mulheres.** Se seguisse a média da Paraíba, teria cerca de 44 casos em 6 anos; registrou 205. |
+| Ficha, aviso de poucos casos | Poucos casos (4 no tipo e período): taxa e observado ÷ esperado instáveis. | Poucos casos (4 neste tipo e período). Um caso a mais ou a menos muda muito a taxa e a comparação. |
+| Ficha, casos | Estado: 10.344 (0,1% do estado; 1,7% das mulheres) | Paraíba: 10.344 casos. Tem 1,7% das mulheres da Paraíba e 0,1% dos casos notificados. |
+| Ficha, taxa | 7,2 · Média do estado: 83,9 | 7,2 · casos por 100 mil mulheres por ano, contra 83,9 na média da Paraíba. Média da região de saúde (10ª Região): 13,5. |
+| Ficha, comparação | Observado ÷ esperado · 0,09 · Esperado se seguisse o estado: 175,2 casos · Notifica menos que a média do estado (estado = 1) | Comparação com a média da Paraíba · **cerca de 1/10 do esperado** · Muito abaixo da média (menos da metade), considerando o número de mulheres. Esperado se seguisse a média da Paraíba: cerca de 175 casos. Registrou 15. · em letra menor: Índice: 0,09 (1 = igual à média). Nome técnico: observado ÷ esperado. |
+| Ficha, tipos e faixa (traço) | Barra: % do município. Traço: % do estado. · dica "Estado: 50%" | Barra: % do município. Traço: % da Paraíba. · dica "Paraíba: 50%" |
+| Ficha, faixa em taxa | Traço: taxa do estado na mesma faixa (por 100 mil mulheres da faixa, por ano). | Traço: taxa da Paraíba na mesma faixa. Casos por ano a cada 100 mil mulheres da faixa. |
+| Ficha, local de atendimento | Mesma região: 9 casos (60,0%) · Poucos casos (N): porcentagens instáveis. · …referência regional; o dado não diz o motivo. | Mesma região: 9 casos (60%) · Poucos casos (N). As porcentagens mudam muito com um caso. · …referência regional. O dado não diz o motivo. |
+| Ficha, serviços | Serviços declarados pelo município (MUNIC 2023, IBGE) · …em 2023; serviços criados depois não aparecem. | Serviços declarados pela prefeitura (pesquisa MUNIC 2023, do IBGE) · …em 2023. Serviços criados depois não aparecem. |
+| Comparar municípios | A última coluna é a média do estado. · Estado (referência) · Casos esperados se seguisse o estado: 175,2 · Observado ÷ esperado · porcentagens com 1 casa | A última coluna mostra a Paraíba inteira, para comparar. · Paraíba (referência) · Casos esperados se seguisse a média da Paraíba: 175 · Comparação com a média da Paraíba (1 = igual) + linha nova "Em palavras" (ex.: "cerca de 1/10 do esperado") · porcentagens sem casas acima de 10% |
+| Análise, número do topo | 83,9 por 100 mil mulheres por ano, estado | 83,9 casos por 100 mil mulheres por ano, média da Paraíba |
+| Análise, resultado 4 | João Pessoa tem 29,5% dos casos e 21,6% das mulheres do estado (observado ÷ esperado: 1,36). | João Pessoa tem 22% das mulheres da Paraíba e 29% dos casos notificados. Registra 1,4 vezes mais notificações que a média da Paraíba, considerando o número de mulheres. |
+| Análise, resultado 5 | N municípios notificam menos da metade do esperado. … O menor valor é o de Sousa (0,09). | N municípios registram menos da metade das notificações esperadas para o seu número de mulheres. … O menor valor é o de Sousa: cerca de 1/10 do esperado. Teria cerca de 175 casos se seguisse a média da Paraíba; registrou 15. |
+| Análise, resultado 6 | N municípios notificam o dobro ou mais do esperado. … têm observado ÷ esperado de 2 ou mais. | N municípios registram o dobro ou mais das notificações esperadas para o seu número de mulheres. … registram 2 vezes ou mais a média da Paraíba, considerando o número de mulheres. |
+| Análise, resultado 7 | …um único caso muda muito a taxa e o observado ÷ esperado. | …um único caso muda muito a taxa e a comparação com a média. |
+| Análise, local | 91,2% foram atendidas na própria região de saúde, 7,6% em outra região da Paraíba e 1,2% fora do estado (122 casos). | Das mulheres notificadas, 91% foram atendidas na própria região de saúde, 7,6% em outra região da Paraíba e 1,2% fora da Paraíba (122 casos). |
+| Análise, MUNIC | Na MUNIC 2023, o serviço mais declarado é… | Na MUNIC 2023, pesquisa do IBGE com as prefeituras, o serviço mais declarado é… |
+| Análise, faixa etária | (25,1%) · Linha tracejada: taxa geral do estado · rótulo "estado: 83,9 por 100 mil/ano" | (25%) · Linha tracejada: taxa geral da Paraíba · rótulo "Paraíba: 83,9 por 100 mil/ano" |
+| Análise, descrições | Local da notificação em relação à região de saúde de residência. · Casos e taxa anual por 100 mil mulheres. | Lugar da notificação comparado com a região de saúde onde a mulher mora. · Casos e taxa por 100 mil mulheres por ano. |
+| Sobre o painel | Casos notificados: fichas do SINAN de mulheres residentes no município. · Observado ÷ esperado: casos do município em relação ao esperado pela média do estado (1 = igual). · Valores marcados com * vêm de menos de 10 casos e são instáveis. · Fontes com siglas (SINAN/TABNET, DATASUS, MUNIC) | Casos notificados: fichas de notificação de mulheres que moram no município. · Comparação com a média da Paraíba: mostra se o município notifica mais ou menos que a média, considerando o número de mulheres. Nome técnico: observado ÷ esperado. · Valores marcados com * vêm de menos de 10 casos. Um caso a mais ou a menos muda muito o valor. · Fontes com cada sigla explicada na primeira vez |
+| Tour, passo 2 | Observado ÷ esperado: cada município comparado com o estado. Azul: abaixo do esperado. Vermelho: acima. | Comparação com a média da Paraíba: mostra se cada município notifica mais ou menos que a média da Paraíba, considerando o número de mulheres. Roxo: abaixo da média. Laranja: acima. (As cores antigas não valiam mais desde a paleta PuOr.) |
+| Tour, passos 3 a 5 | …comparados com o estado… · O traço marca o estado. · Principais resultados do estado… | …cada um ao lado da média da Paraíba… · O traço marca a média da Paraíba. · Principais resultados da Paraíba… |
+| Tour, dica | Setas ← → mudam de passo · Esc sai | As setas do teclado mudam de passo. Esc sai. |
+| Como calcular, casos | Fichas de notificação do SINAN… · Contagem do TABNET… | SINAN e TABNET explicados na primeira vez (sistema de notificação do Ministério da Saúde; ferramenta de consulta pública). |
+| Como calcular, comparação | Título "Observado ÷ esperado"; "Compara o município com o estado."; esperado = mulheres × (casos do estado ÷ mulheres do estado); "esperado 175,2 casos" | Título "Comparação com a média da Paraíba"; o que é, em palavras, com o nome técnico; fórmula com "Paraíba"; exemplo "esperado = 34.824 × (10.344 ÷ 2.055.832) = 175,2, ou seja, cerca de 175 casos. Registrou 15. 15 ÷ 175,2 = 0,09: cerca de 1/10 do esperado (8,6%)." |
+| Como calcular, taxa, tipos, faixa, local, fontes | "Estado: 83,9" · "Estado: física…" · "SIDRA 9514" · "60,0%"; "fora do estado" | "Média da Paraíba: 83,9" · "Paraíba: física…" · "tabela 9514 do SIDRA, o banco de tabelas do IBGE" · "60%"; "fora da Paraíba"; IBGE, MUNIC e DATASUS explicados |
+| Baixar mapa (PNG) | Média do estado: 83,9 por 100 mil/ano. Classes por quintis. (texto antigo, de antes das faixas fixas) · Classes fixas em torno de 1 (igual ao estado). | Média da Paraíba: 83,9 casos por 100 mil mulheres por ano. Faixas fixas para qualquer período. · Limites das faixas: 0,5 · 0,8 · 1,25 · 2 (1 = igual à média). Nome técnico: observado ÷ esperado. |
+
+Ficaram como estavam, porque são dados para planilha e não texto de leitura: os nomes das colunas do CSV (`observado_sobre_esperado` etc.) e a mensagem técnica de erro de carga, que fala com quem instala o painel.
+
+### Conferência
+- Teste novo (`testar_front.py`): gera a frase-resumo para os 223 municípios × 4 tipos × 7 períodos (6.244 frases) e confere que nenhuma tem "que o estado", "do estado", "do esperado" sem complemento ou número de casos com casa decimal, que todas começam pelo nome do município e citam a Paraíba. Também confere as frases exatas de Sousa e Sumé e a de um município "perto da média".
+- Legenda da comparação em palavras, com os limites em letra menor; marca "média da Paraíba" na classe certa da taxa; ficha de Sousa com "contra 83,9 na média da Paraíba" e "Muito abaixo da média"; comparação de municípios igual à view.
+- Testes: dados 67, painel 159 (Firefox e WebKit 158), usabilidade 34, 0 falhas. Material do teste com usuários (`docs/teste_usuarios/`) regerado com os nomes novos.
+- Capturas: `capturas/ficha_resumo_sume.png`, `ficha_resumo_sousa.png`, `ficha_resumo_joao_pessoa.png`.

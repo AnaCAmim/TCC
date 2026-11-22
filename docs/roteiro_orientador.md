@@ -14,8 +14,8 @@ Painel de indicadores de violência contra a mulher na Paraíba. Versão do ramo
 | Tempo | Tela | O que mostrar | Fala curta |
 |---|---|---|---|
 | 0:00 | Sobre o painel | A tela que abre sozinha na primeira visita | "O painel é para gestoras e gestores públicos. Esta tela diz para que serve, como usar em 3 passos, as fontes e os dois avisos: notificação não é ocorrência, e poucos casos dão valor instável." Clique em **Começar pelo tour**. |
-| 0:40 | Passo 1 · Mapa da taxa | Mapa e legenda | "Cada município pintado pela taxa de notificação por 100 mil mulheres por ano. A média do estado é 83,9." |
-| 1:20 | Passo 2 · Observado ÷ esperado | Mapa azul e vermelho; ranking "10 menores" | "Aqui cada município é comparado com o estado: 1 é igual, azul notifica menos, vermelho notifica mais. Os 10 menores só entram com pelo menos 10 casos, para não destacar acaso." |
+| 0:40 | Passo 1 · Mapa da taxa | Mapa e legenda | "Cada município pintado pela taxa de notificação por 100 mil mulheres por ano. A média da Paraíba é 83,9." |
+| 1:20 | Passo 2 · Comparação com a média da Paraíba | Mapa roxo e laranja; ranking "10 menores" | "Aqui cada município é comparado com a média da Paraíba, considerando o número de mulheres: roxo notifica menos, laranja notifica mais. Sumé registra 4,6 vezes a média; Sousa, cerca de 1/10 do esperado. Os 10 menores só entram com pelo menos 10 casos, para não destacar acaso." |
 | 2:00 | Passo 3 · Ficha de Sousa | Frase-resumo no topo | "A ficha diz primeiro o que olhar: Sousa notifica bem menos que o estado, 0,09 do esperado. Depois vêm os 5 indicadores, sempre ao lado do estado e da região de saúde." |
 | 2:50 | Passo 4 · Faixa etária em taxa | Botões "Casos \| Taxa" | "Em casos, a faixa mais atingida no estado é 20 a 29 anos; em taxa, é 10 a 14 anos, 157,9 por 100 mil por ano. Por isso as duas formas." |
 | 3:30 | Passo 5 · Análise | Leituras prontas | "Cada leitura é calculada dos dados e traz a pergunta que ela abre para a gestão. Por exemplo: 91,2% das mulheres foram atendidas na própria região de saúde." |
