@@ -21,7 +21,7 @@ SAIDA = RAIZ / "docs" / "teste_usuarios"
 SAIDA.mkdir(parents=True, exist_ok=True)
 DADOS = json.loads((RAIZ / "web" / "dados.json").read_text(encoding="utf-8"))
 R = respostas_certas(DADOS)
-N_PART = 5        # participantes previstos no plano (docs/websig_plano.md, seção 3)
+N_PART = 5        # participantes previstos no plano de avaliação
 LINHAS_EXTRA = 5  # linhas de reserva para participantes a mais
 
 

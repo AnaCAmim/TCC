@@ -1,6 +1,6 @@
 # Bases candidatas para o painel: levantamento (18/11/2026)
 
-Levantamento feito **sem mudar nada no painel**. Atualização de 18/11/2026: a seção 1 (faixa etária) e a seção 3 (rede, MUNIC 2023) foram implementadas no ramo `bases-contexto`; a seção 2 (residência × notificação) também foi implementada, no nível de região de saúde (ver a explicação dos 122 abaixo). Regra do projeto: só os 5 indicadores (casos, taxa por 100 mil mulheres por ano, tipos, faixa etária, observado ÷ esperado), tudo explicável e recalculável numa planilha. Toda base abaixo precisaria da aprovação do orientador antes de entrar.
+Levantamento feito **sem mudar nada no painel**. Atualização de 18/11/2026: a seção 1 (faixa etária) e a seção 3 (rede, MUNIC 2023) foram implementadas no painel; a seção 2 (residência × notificação) também foi implementada, no nível de região de saúde (ver a explicação dos 122 abaixo). Regra do projeto: só os 5 indicadores (casos, taxa por 100 mil mulheres por ano, tipos, faixa etária, observado ÷ esperado), tudo explicável e recalculável numa planilha. Toda base abaixo precisaria da aprovação do orientador antes de entrar.
 
 Cada acesso foi testado em 18/11/2026, e as amostras estão em `dados/brutos/amostras/`, descritas em `dados/brutos/FONTES.md`. "Sem dado" quer dizer que a fonte não informa, e não que o serviço não existe.
 
@@ -19,7 +19,7 @@ Cada acesso foi testado em 18/11/2026, e as amostras estão em `dados/brutos/amo
 | Como entraria | A faixa etária deixa de ser só contagem e ganha a taxa: "casos por ano a cada 100 mil meninas ou mulheres daquela idade". |
 | Fórmula | taxa da faixa = casos da faixa ÷ mulheres da faixa × 100.000 ÷ 6 (a mesma fórmula da taxa atual) |
 | Exemplo (estado, 2019–2024) | 10 a 14 anos: 1.315 ÷ 138.805 × 100.000 ÷ 6 = **157,9**; 20 a 29 anos: **143,4**; 60 e mais: **20,0**. Na contagem, 20 a 29 é a faixa mais atingida; na taxa, é 10 a 14 |
-| Situação | **Implementado no ramo `bases-contexto`**: tabela `populacao_faixa`, views `vw_faixa_municipio` e `vw_faixa_estado`, alternância "Casos \| Taxa por 100 mil/ano" na ficha e na Análise |
+| Situação | **Implementado no painel**: tabela `populacao_faixa`, views `vw_faixa_municipio` e `vw_faixa_estado`, alternância "Casos \| Taxa por 100 mil/ano" na ficha e na Análise |
 | Riscos de interpretação | Por município, cada faixa tem poucos casos, então a taxa fica instável (vale o aviso de menos de 10 casos). As faixas do SINAN têm larguras diferentes. A faixa "Ignorada" (21 casos) fica sem denominador. O denominador é de 2022 para os 6 anos |
 
 ## 2. SINAN violência: município de residência × município de notificação
@@ -34,7 +34,7 @@ Cada acesso foi testado em 18/11/2026, e as amostras estão em `dados/brutos/amo
 | Teste | OK no nível de região. Amostra: 220 municípios, 10.222 notificações; **92,3% notificadas na própria região de saúde**. Faltam 122 em relação aos 10.344: são **residentes da PB notificadas em outro estado** (explicação abaixo) |
 | Como entraria | Na ficha: "x% das notificações de mulheres deste município foram feitas em outra região de saúde" (mais tarde, "em outro município"). |
 | Fórmula | % fora = notificações de residentes feitas fora do município (ou da região) ÷ total de notificações de residentes × 100 |
-| Situação | **Implementado no ramo `bases-contexto`** como contexto: tabela `notificacao_local` (mesma região de saúde / outra região da PB / fora da PB), views `vw_local_atendimento` e `vw_local_estado`, bloco "Onde as mulheres deste município foram atendidas" na ficha e na Análise. No estado: 9.436 (91,2%) na própria região, 786 (7,6%) em outra região da PB e 122 (1,2%) fora da PB, sobre os 10.344. Os 92,3% citados acima eram sobre os 10.222 notificados na PB |
+| Situação | **Implementado no painel** como contexto: tabela `notificacao_local` (mesma região de saúde / outra região da PB / fora da PB), views `vw_local_atendimento` e `vw_local_estado`, bloco "Onde as mulheres deste município foram atendidas" na ficha e na Análise. No estado: 9.436 (91,2%) na própria região, 786 (7,6%) em outra região da PB e 122 (1,2%) fora da PB, sobre os 10.344. Os 92,3% citados acima eram sobre os 10.222 notificados na PB |
 | Riscos de interpretação | Notificar fora não quer dizer que falta serviço: pode ser hospital de referência, trabalho ou preferência. A `violepb` inclui as paraibanas notificadas em outros estados (são os 122), mas o TABNET não mostra o município de notificação delas. Pelo TABNET, o nível municipal exigiria 223 consultas; os microdados exigem uma ferramenta fora da planilha |
 
 ### Diferença de 122 notificações (investigada em 18/11/2026)
@@ -66,7 +66,7 @@ Cada acesso foi testado em 18/11/2026, e as amostras estão em `dados/brutos/amo
 | Fontes estaduais | SEMDH-PB, SESDS-PB e TJPB: **nenhuma lista oficial estruturada (CSV ou planilha) encontrada**. Notícias de jun/2025 citam 21 DEAMs em 19 municípios, mas é fonte secundária [VERIFICAR com a Coordenadoria das DEAMs]. Caminho: pedido via LAI à SESDS e à SEMDH |
 | Como entraria | Na ficha, como contexto e não como indicador: "Serviços informados pela prefeitura em 2023: organismo de políticas para mulheres (sim/não/sem dado), centro de referência, casa-abrigo, delegacia da mulher". |
 | Fórmula | Nenhuma (sim / não / sem dado) |
-| Situação | **Implementado no ramo `bases-contexto`**: tabela `rede_atendimento` (organismo, centro de referência, casa-abrigo, delegacia especializada; a MUNIC 2023 não pergunta sobre "sala" em delegacia comum) e bloco na ficha com ícone + texto |
+| Situação | **Implementado no painel**: tabela `rede_atendimento` (organismo, centro de referência, casa-abrigo, delegacia especializada; a MUNIC 2023 não pergunta sobre "sala" em delegacia comum) e bloco na ficha com ícone + texto |
 | Riscos de interpretação | É autodeclaração da prefeitura e pode estar errada ou desatualizada. Um serviço regional que atende o município pode não constar. "Não" na MUNIC não prova ausência, e "-" deve aparecer como "sem dado". A DEAM é estadual, e a prefeitura pode não saber informar |
 
 ## 4. Óbitos de mulheres por agressão (SIM, CID-10 X85–Y09)

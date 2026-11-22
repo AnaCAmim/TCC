@@ -1,0 +1,24 @@
+Licença dos textos, da documentação e das capturas de tela
+
+Copyright (c) 2026 Ana Clara Mendes Amim
+
+Os textos, a documentação e as capturas de tela deste repositório (README.md, a pasta
+docs/, dados/brutos/FONTES.md e a pasta capturas/) estão licenciados sob a licença
+Creative Commons Atribuição 4.0 Internacional (CC BY 4.0).
+
+Você pode copiar e redistribuir o material em qualquer meio ou formato, e adaptá-lo
+(remixar, transformar e criar a partir dele) para qualquer fim, inclusive comercial,
+desde que dê o crédito adequado (autora, título do trabalho e link para este
+repositório), indique se fez mudanças e não aplique termos ou medidas técnicas que
+restrinjam o que a licença permite.
+
+Resumo da licença: https://creativecommons.org/licenses/by/4.0/deed.pt-br
+Texto legal completo: https://creativecommons.org/licenses/by/4.0/legalcode.pt
+
+This work (texts, documentation and screenshots) is licensed under the Creative Commons
+Attribution 4.0 International License. To view a copy of this license, visit
+https://creativecommons.org/licenses/by/4.0/
+
+O código-fonte (SQL, Python, HTML, CSS e JavaScript) continua sob a licença MIT, no
+arquivo LICENSE. Componentes de terceiros mantêm suas próprias licenças (ver LICENSE).
+Os dados públicos de dados/brutos/ pertencem às fontes citadas em dados/brutos/FONTES.md.

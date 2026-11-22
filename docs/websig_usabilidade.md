@@ -1,8 +1,8 @@
-# Revisão de usabilidade e acessibilidade do painel, 18/11/2026 (atualizada na etapa 4)
+# Revisão de usabilidade e acessibilidade do painel (18/11/2026, atualizada até 22/11/2026)
 
-Etapa 3. Revisão do painel pelas 10 heurísticas de Nielsen e pela WCAG 2.1 nível AA, antes do teste com usuários. Nenhum dado, SQL, fórmula ou indicador foi alterado; as mudanças são só de interface (`web/index.html`, `css/painel.css`, `js/mapa.js`, `js/app.js`). As versões anteriores do front ficam numa cópia local (`backup/`), fora do repositório.
+Revisão do painel pelas 10 heurísticas de Nielsen e pela WCAG 2.1 nível AA, antes do teste com usuários. Nenhum dado, SQL, fórmula ou indicador foi alterado; as mudanças são só de interface (`web/index.html`, `css/painel.css`, `js/mapa.js`, `js/app.js`).
 
-Como foi feita: inspeção do código e das telas, mais medições automáticas com Playwright (`testes/testar_usabilidade.py`, dentro do `atualizar.bat`). Na etapa 4, os testes do painel e de usabilidade passaram também no Firefox e no WebKit, o motor do Safari (`testar_navegadores.bat`). Não houve teste com leitor de tela real (NVDA, VoiceOver) nem em Safari de verdade (Mac ou iPhone).
+Como foi feita: inspeção do código e das telas, mais medições automáticas com Playwright (`testes/testar_usabilidade.py`, dentro do `atualizar.bat`). Depois, os testes do painel e de usabilidade passaram também no Firefox e no WebKit, o motor do Safari (`testar_navegadores.bat`). Não houve teste com leitor de tela real (NVDA, VoiceOver) nem em Safari de verdade (Mac ou iPhone).
 
 Escala de gravidade (Nielsen): 0 = não é problema; 1 = cosmético; 2 = pequeno; 3 = grande, corrigir antes do teste; 4 = catástrofe, impede a tarefa.
 
@@ -23,8 +23,8 @@ Escala de gravidade (Nielsen): 0 = não é problema; 1 = cosmético; 2 = pequeno
 | 11 | O título da aba do navegador era sempre o mesmo, em qualquer tela ou ficha. | WCAG 2.4.2 Página com título; H1 Visibilidade do estado | 1 | O título acompanha a tela: "Mapa · …", "Análise · …", "Sousa · …". |
 | 12 | As abas principais não respondiam às setas, como manda o padrão de abas. | WCAG 2.1.1 Teclado; H4 Consistência e padrões | 1 | Setas ← e → trocam de aba; só a aba ativa entra na ordem do Tab. |
 | 13 | Os painéis das abas tinham rótulo próprio, desligado do botão da aba. | WCAG 1.3.1 Informação e relações | 1 | Painéis ligados às abas por `aria-labelledby`. |
-| 14 | A dica do mapa (nome e valor) só aparecia ao passar o mouse; no toque e no teclado não havia dica, e os municípios do mapa não recebiam foco. | WCAG 1.4.13 Conteúdo em foco ou passagem do mouse; 2.1.1 Teclado; H6 | 1 | **Corrigido na etapa 4.** Tab percorre os municípios do mapa em ordem alfabética (só os da região escolhida, se houver filtro); a mesma etiqueta "nome · valor" aparece acima do município, sem cobri-lo, com "Enter abre a ficha"; Enter ou espaço abre a ficha e Esc a fecha, devolvendo o foco ao município. No toque, o 1º toque mostra a etiqueta ("Toque de novo para abrir a ficha") e o 2º abre a ficha. Cada município tem `role=button` e rótulo "Nome: valor". Testado no Chrome, Firefox e WebKit. |
-| 15 | No Safari (WebKit), o Tab pula links por padrão: o "Pular para o conteúdo", o ranking e os links "como calcular" ficavam fora do teclado. | WCAG 2.1.1 Teclado | 2 | `tabindex="0"` explícito nesses links (etapa 4). |
+| 14 | A dica do mapa (nome e valor) só aparecia ao passar o mouse; no toque e no teclado não havia dica, e os municípios do mapa não recebiam foco. | WCAG 1.4.13 Conteúdo em foco ou passagem do mouse; 2.1.1 Teclado; H6 | 1 | **Corrigido.** Tab percorre os municípios do mapa em ordem alfabética (só os da região escolhida, se houver filtro); a mesma etiqueta "nome · valor" aparece acima do município, sem cobri-lo, com "Enter abre a ficha"; Enter ou espaço abre a ficha e Esc a fecha, devolvendo o foco ao município. No toque, o 1º toque mostra a etiqueta ("Toque de novo para abrir a ficha") e o 2º abre a ficha. Cada município tem `role=button` e rótulo "Nome: valor". Testado no Chrome, Firefox e WebKit. |
+| 15 | No Safari (WebKit), o Tab pula links por padrão: o "Pular para o conteúdo", o ranking e os links "como calcular" ficavam fora do teclado. | WCAG 2.1.1 Teclado | 2 | `tabindex="0"` explícito nesses links . |
 | 16 | No Firefox, com a lista de sugestões aberta num campo da comparação, o 1º Esc fecha a lista e só o 2º fecha a janela. | H3 Controle e liberdade | 0 | Comportamento do navegador; não corrigido. O botão Fechar continua disponível. |
 
 ## O que foi conferido e passou
@@ -55,7 +55,7 @@ Cada tarefa parte da página inicial (Mapa, sem município aberto). Uma ação =
 | T5 · baixar a tabela | 2 | Aba Análise → Baixar CSV | CSV com 223 municípios |
 | T5 · imprimir a ficha | 2 | Buscar o município + Enter → Imprimir ficha | Folha limpa com a ficha |
 
-Nenhuma tarefa passou de 4 ações, por isso nenhuma precisou ser simplificada. As contagens já eram as mesmas antes desta etapa; o que mudou foi a T3, que agora se responde lendo uma frase em vez de comparar 11 barras (problema 3), e a busca, que avisa quando não acha o município (problema 1).
+Nenhuma tarefa passou de 4 ações, por isso nenhuma precisou ser simplificada. As contagens já eram as mesmas antes desta revisão; o que mudou foi a T3, que agora se responde lendo uma frase em vez de comparar 11 barras (problema 3), e a busca, que avisa quando não acha o município (problema 1).
 
 Limite do piloto: o robô sabe onde clicar. Ele mede o caminho mais curto, não se uma pessoa o encontra. Isso só o teste com usuários (`docs/teste_usuarios/`) mostra.
 
@@ -68,7 +68,7 @@ Registro: `capturas/piloto_tarefas.json` (gerado pelos testes) e capturas `pilot
 - Teste com 5 usuários do público-alvo (roteiro, tarefas, SUS e planilha em `docs/teste_usuarios/`). [CONFIRMAR COM ORIENTADOR] a necessidade de Comitê de Ética.
 - Referências de apoio para o artigo [VERIFICAR]: NIELSEN, J. *Usability engineering*. Boston: Academic Press, 1993; W3C. *Web Content Accessibility Guidelines (WCAG) 2.1*. 2018; MACHADO, G. M.; OLIVEIRA, M. M.; FERNANDES, L. A. F. A physiologically-based model for simulation of color vision deficiency. *IEEE Transactions on Visualization and Computer Graphics*, v. 15, n. 6, p. 1291–1298, 2009.
 
-## Compatibilidade entre navegadores (etapa 4)
+## Compatibilidade entre navegadores
 
 | Navegador (Playwright) | testar_front.py | testar_usabilidade.py | Ajustes feitos |
 |---|---|---|---|
@@ -78,7 +78,7 @@ Registro: `capturas/piloto_tarefas.json` (gerado pelos testes) e capturas `pilot
 
 A leitura da área de transferência (Copiar link) e o PDF da ficha só são conferidos no Chrome, porque os outros navegadores do Playwright não liberam essas funções nos testes.
 
-## Acabamento para a apresentação (ramo `bases-contexto`, 18/11/2026)
+## Acabamento para a apresentação (18/11/2026)
 
 Revisão de acabamento feita como faria uma banca de Interface com o Usuário, sem novas bases nem indicadores e sem mudar dados, SQL ou fórmulas.
 
@@ -98,9 +98,9 @@ Revisão de acabamento feita como faria uma banca de Interface com o Usuário, s
 
 Teste-piloto depois do acabamento: as tarefas continuam com 1 ou 2 ações. Na primeira visita há 1 ação a mais (fechar "Sobre o painel"), só uma vez.
 
-## Visual de relatório técnico (ramo `bases-contexto`, 20/11/2026)
+## Visual de relatório técnico (20/11/2026)
 
-Objetivo: tirar a aparência de interface genérica e dar ao painel o visual de relatório técnico / jornalismo de dados. Dados, SQL, fórmulas, indicadores, funções e a estrutura das 3 telas não mudaram. O front anterior está em `backup/etapa5/`, fora do repositório.
+Objetivo: tirar a aparência de interface genérica e dar ao painel o visual de relatório técnico / jornalismo de dados. Dados, SQL, fórmulas, indicadores, funções e a estrutura das 3 telas não mudaram.
 
 ### Visual (antes → depois)
 
@@ -144,9 +144,9 @@ Objetivo: tirar a aparência de interface genérica e dar ao painel o visual de 
 - Lighthouse (página inicial, servidor com compressão): celular Desempenho 99 e Acessibilidade 100; computador 100 e 100 (`docs/lighthouse/`). Sem pré-carregamento das fontes, o celular caía para 96. O pré-carregamento só é feito quando o painel é servido por http, porque no duplo clique (`file://`) o navegador o bloqueia e acusa erro de CORS.
 - Testes: dados 66, painel 120 (Firefox e WebKit 119), usabilidade 30, nos dois modos de abertura. Novo teste: nenhum travessão nos textos das telas, do Sobre e do Tour.
 
-## Melhorias cartográficas no mapa (ramo `bases-contexto`, 20/11/2026)
+## Melhorias cartográficas no mapa (20/11/2026)
 
-Dados, SQL, fórmulas e indicadores não mudaram. O exportador passou a gravar no `dados.json` o contorno do estado e das 16 regiões de saúde, calculados no PostGIS pela união das geometrias municipais (`ST_Union`, simplificados a cerca de 250 m). São só desenho e não entram em nenhuma conta. O front anterior está em `backup/etapa7/`, fora do repositório.
+Dados, SQL, fórmulas e indicadores não mudaram. O exportador passou a gravar no `dados.json` o contorno do estado e das 16 regiões de saúde, calculados no PostGIS pela união das geometrias municipais (`ST_Union`, simplificados a cerca de 250 m). São só desenho e não entram em nenhuma conta.
 
 | # | Elemento | Antes | Depois | Princípio cartográfico |
 |---|---|---|---|---|
@@ -168,9 +168,9 @@ Conferência:
 - Testes: dados 67, painel 138 (Firefox e WebKit 137), usabilidade 32, 0 falhas.
 - Lighthouse local (com compressão): celular 97 e 98 de desempenho (antes 99) e 100 de acessibilidade; computador 100 e 100. A primeira versão ficou em 95: o mapa era desenhado e logo reenquadrado na abertura. Calcular a vista antes de pôr as camadas e adiar contornos e rótulos para depois do primeiro desenho recuperou quase toda a diferença.
 
-## Revisão visual a partir da auditoria do site publicado (ramo `bases-contexto`, 20/11/2026)
+## Revisão visual a partir da auditoria do site publicado (20/11/2026)
 
-Dados, SQL, fórmulas, indicadores e funções não mudaram. O front anterior está em `backup/etapa6/`, fora do repositório (o acabamento antigo virou `backup/etapa6_acabamento/`).
+Dados, SQL, fórmulas, indicadores e funções não mudaram.
 
 ### Princípios adotados
 
@@ -189,7 +189,7 @@ Referências:
 
 | # | Elemento | Antes | Depois |
 |---|---|---|---|
-| R1 | Mapa e legenda no tema escuro | Na versão publicada, o fundo do mapa e da legenda ficavam claros no tema escuro | Fundo do mapa e da legenda seguem o tema (no ramo já seguiam; agora um teste mede a luminância do fundo nos dois temas, em 1366 e no celular). As paletas são idênticas nos dois temas: claro continua sendo baixo |
+| R1 | Mapa e legenda no tema escuro | Na versão publicada, o fundo do mapa e da legenda ficavam claros no tema escuro | Fundo do mapa e da legenda seguem o tema (na versão em desenvolvimento já seguiam; agora um teste mede a luminância do fundo nos dois temas, em 1366 e no celular). As paletas são idênticas nos dois temas: claro continua sendo baixo |
 | R2 | Cores da taxa | Rampa azul própria (#b7d3f6 a #104281), invertida no tema escuro: lá o azul mais escuro era o valor mais baixo | ColorBrewer YlOrRd 5: #ffffb2, #fecc5c, #fd8d3c, #f03b20, #bd0026, igual nos dois temas |
 | R3 | Cores do observado ÷ esperado | Divergente azul–vermelho própria (#1c5cab a #c93b3a), centro bege (#d4cfc4) que no tema escuro virava cinza-escuro (#4a4944), mais escuro que os extremos | ColorBrewer PuOr 5: #5e3c99 (menos de 0,5), #b2abd2 (0,5 a 0,8), #f7f7f7 (0,8 a 1,25), #fdb863 (1,25 a 2), #e66101 (2 ou mais). O limite municipal continua visível sobre a classe central (#f7f7f7) |
 | R4 | Classes da taxa | Quintis recalculados a cada combinação de tipo e período: a mesma cor mudava de significado ao trocar o filtro | Classes fixas por tipo, calculadas uma vez a partir das taxas anuais 2019–2024 de todos os municípios (quintis das taxas positivas, arredondados): total 40/60/90/140; física 30/50/70/120; psicológica 20/30/50/80; sexual 15/25/40/60. Linha na legenda: "Classes fixas: quintis das taxas anuais dos municípios de 2019 a 2024 neste tipo, arredondados. Valem para qualquer ano ou período." |
@@ -214,12 +214,12 @@ Referências:
 - Hachura: linha escura (#262522) com opacidade 0,5 a 0,75 nas classes claras; branca com 0,5 a 0,65 sobre #bd0026 e #5e3c99. Contraste linha × cor de 3,01 a 3,32:1 (mínimo exigido 3:1), conferido nos padrões do próprio mapa.
 - Contagens da legenda (todos os tipos, 2019–2024): taxa 74 / 50 / 44 / 35 / 20, 95 com hachura; observado ÷ esperado 76 / 61 / 42 / 32 / 12.
 - Testes: dados 67, painel 157 (Firefox e WebKit 156), usabilidade 34, 0 falhas. Novos: paletas e classes fixas (iguais em "todos os anos" e em 2024; diferentes por tipo); histograma só no O/E; legenda visível sem cobrir a ficha; foco no título sem moldura; fundo do mapa e da legenda conforme o tema; legenda recolhível no celular; gráficos com uma série destacada; rótulos dentro do mapa; ordem de claridade nas simulações.
-- Lighthouse local (com compressão): celular 98 de desempenho no relatório guardado (quatro rodadas: 93, 97, 98 e 97; mediana 97,5; etapa anterior 97 e 98), computador 100; acessibilidade 100 nos dois.
+- Lighthouse local (com compressão): celular 98 de desempenho no relatório guardado (quatro rodadas: 93, 97, 98 e 97; mediana 97,5; versão anterior 97 e 98), computador 100; acessibilidade 100 nos dois.
 - Capturas novas em `capturas/`: `{1366,celular}_{claro,escuro}_mapa_{taxa,oe,casos}.png`, além de `*_mapa_ficha.png` (ficha aberta com a legenda) e `*_analise.png`.
 
-## Revisão dos textos para leitura rápida por gestores (ramo `bases-contexto`, 22/11/2026)
+## Revisão dos textos para leitura rápida por gestores (22/11/2026)
 
-Dados, fórmulas, indicadores e funções não mudaram: só os textos da tela. O front anterior está em `backup/etapa8/`, fora do repositório.
+Dados, fórmulas, indicadores e funções não mudaram: só os textos da tela.
 
 **Problema de partida.** A frase "Notifica bem mais que o estado: 4,64 do esperado" dava a entender que Sumé notifica mais que a Paraíba inteira. O número 4,64 compara Sumé com a **média** da Paraíba, levando em conta o número de mulheres do município.
 
@@ -309,9 +309,9 @@ Ficaram como estavam, porque são dados para planilha e não texto de leitura: o
 - Testes: dados 67, painel 159 (Firefox e WebKit 158), usabilidade 34, 0 falhas. Material do teste com usuários (`docs/teste_usuarios/`) regerado com os nomes novos.
 - Capturas: `capturas/ficha_resumo_sume.png`, `ficha_resumo_sousa.png`, `ficha_resumo_joao_pessoa.png`.
 
-## Layout do mapa: legenda compacta, canvas claro e mapa maior (ramo `bases-contexto`, 22/11/2026)
+## Layout do mapa: legenda compacta, canvas claro e mapa maior (22/11/2026)
 
-Dados, fórmulas, indicadores e textos aprovados não mudaram: os textos só foram reorganizados. O front anterior está em `backup/etapa9/`, fora do repositório.
+Dados, fórmulas, indicadores e textos aprovados não mudaram: os textos só foram reorganizados.
 
 | # | Elemento | Antes | Depois | Por quê |
 |---|---|---|---|---|
