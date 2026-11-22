@@ -10,6 +10,7 @@ import functools
 import http.server
 import io
 import pathlib
+import re
 import random
 import shutil
 import sys
@@ -51,6 +52,11 @@ def num_br(t):
 
 def fmt(v, d):
     return f"{v:,.{d}f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def npct(v):
+    """Porcentagem como no painel: sem casas acima de 10%; uma casa até 10%."""
+    return (fmt(v, 0) if v >= 10 else fmt(v, 1)) + "%"
 
 
 # ---------- referência: views SQL ----------
@@ -192,7 +198,8 @@ with sync_playwright() as pw:
         CORES = """(() => { const f = [...document.querySelectorAll('path.leaflet-interactive[data-instavel]')].map(p => p.getAttribute('fill'));
             const pad = [...document.querySelectorAll('pattern[id^=hach-] rect')].map(r => r.getAttribute('fill'));
             return { cores: [...new Set(f.filter(x => !x.startsWith('url')).concat(pad))].map(x => x.toLowerCase()), hist: document.querySelectorAll('#leg .hist').length,
-                     rot: [...document.querySelectorAll('#leg .row[data-n] .rot')].map(e => e.textContent.replace(' ◆', '').trim()) }; })()"""
+                     rot: [...document.querySelectorAll('#leg .row[data-n]')].map(e => e.dataset.rot), lim: [...document.querySelectorAll('#leg .row[data-n]')].map(e => e.dataset.lim || ''),
+                     media: [...document.querySelectorAll('#leg .row[data-n] .media')].length }; })()"""
         v_taxa = pg.evaluate(CORES)
         pg.select_option("#per", "2024"); pg.wait_for_timeout(300)
         v_2024 = pg.evaluate(CORES)
@@ -201,8 +208,10 @@ with sync_playwright() as pw:
         pg.select_option("#tipo", "total"); pg.select_option("#per", "all"); pg.select_option("#ind", "oe"); pg.wait_for_timeout(300)
         v_oe = pg.evaluate(CORES)
         check(set(v_taxa["cores"]) <= YLORRD and v_taxa["rot"] == v_2024["rot"] == ["menos de 40", "40 a 60", "60 a 90", "90 a 140", "140 ou mais"] and v_sex["rot"] != v_taxa["rot"]
-              and v_taxa["hist"] == 0 and set(v_oe["cores"]) <= PUOR and v_oe["hist"] == 5 and v_oe["rot"] == ["menos de 0,5", "0,5 a 0,8", "0,8 a 1,25", "1,25 a 2", "2 ou mais"],
-              f"{modo}: taxa em YlOrRd com classes fixas iguais em 2019–2024 e em 2024 ({v_taxa['rot']}); observado ÷ esperado em PuOr com histograma; rótulos curtos")
+              and v_taxa["hist"] == 0 and v_taxa["media"] == 1 and set(v_oe["cores"]) <= PUOR and v_oe["hist"] == 5
+              and v_oe["rot"] == ["muito abaixo da média (menos da metade)", "abaixo da média", "perto da média", "acima da média", "muito acima da média (mais do dobro)"]
+              and v_oe["lim"] == ["menos de 0,5", "0,5 a 0,8", "0,8 a 1,25", "1,25 a 2", "2 ou mais"],
+              f"{modo}: taxa em YlOrRd com classes fixas iguais em 2019–2024 e em 2024 ({v_taxa['rot']}); comparação com a média em PuOr, em palavras, com os limites em letra menor")
         pg.uncheck("#destacarPoucos"); pg.wait_for_timeout(200)
         sem_hach = pg.evaluate("[...document.querySelectorAll('path.leaflet-interactive')].filter(p => (p.getAttribute('fill') || '').startsWith('url(#hach-')).length")
         sem_item = pg.locator("#leg .row.inst").count()
@@ -300,15 +309,36 @@ with sync_playwright() as pw:
         # O que olhar primeiro: frase-resumo calculada, depois os 5 indicadores, depois os contextos
         resumo = pg.inner_text("#painel .resumo")
         ordem = pg.evaluate("[...document.querySelectorAll('#painel > .resumo, #painel details.sec')].map(e => e.dataset.sec || 'resumo')")
-        check(resumo.startswith("Notifica bem menos que o estado: " + fmt(r["oe"], 2) + " do esperado") and ordem == ["resumo", "ind", "faixa", "ano", "local", "rede"]
+        check(resumo == "Sousa registra cerca de 1/10 das notificações esperadas para o seu número de mulheres. Se seguisse a média da Paraíba, teria cerca de 175 casos em 6 anos; registrou 15."
+              and ordem == ["resumo", "ind", "faixa", "ano", "local", "rede"]
               and pg.locator("#painel details[data-sec=ind] .ind5 .it").count() == 5,
               f"{modo}: ficha começa pela frase-resumo calculada ({resumo!r}) e segue indicadores, depois contextos ({ordem})")
+        # Frase-resumo para os 223 municípios em todos os tipos e períodos: sem "que o estado", sem "do esperado" solto, casos sempre inteiros
+        frases = pg.evaluate("""(() => { const per = ['all'].concat(PAINEL.ANOS.map(String)), r = [];
+            PAINEL.F.forEach(f => ['total', 'fisica', 'psicologica', 'sexual'].forEach(t => per.forEach(p => r.push([f.properties.cod, f.properties.nome, t, p, PAINEL.resumo(f.properties.cod, t, p)])))); return r; })()""")
+        ruins = [x for x in frases if "que o estado" in x[4] or "do estado" in x[4] or re.search(r"do esperado(?! para)", x[4]) or re.search(r"\d+,\d+ casos?\b", x[4])
+                 or not x[4].startswith(x[1] + " ") or "Paraíba" not in x[4]]
+        n_total = sum(1 for x in frases if x[2] == "total" and x[3] == "all")
+        sume = pg.evaluate(f"PAINEL.resumo('{SUME}', 'total', 'all')")
+        perto = next(c for (c, per, t), v in REF.items() if per == "all" and t == "total" and v["casos"] >= 10 and 0.8 <= v["oe"] < 1.25)
+        frase_perto = pg.evaluate(f"PAINEL.resumo('{perto}', 'total', 'all')")
+        check(not ruins and n_total == TOTAL_MUNICIPIOS and len(frases) == TOTAL_MUNICIPIOS * 4 * 7
+              and sume.startswith("Sumé registra 4,6 vezes mais notificações que a média da Paraíba, considerando o número de mulheres.")
+              and "registra notificações perto da média da Paraíba" in frase_perto,
+              f"{modo}: frase-resumo gerada para os 223 municípios × 4 tipos × 7 períodos ({len(frases)} frases), {len(ruins)} com 'que o estado', 'do esperado' solto ou casos com decimal {ruins[:2]}; Sumé: {sume[:60]!r}")
+        if modo == "http":
+            # tela mais alta e indicador "Comparação com a média": a captura mostra a frase-resumo e os indicadores da ficha
+            tam = pg.viewport_size; pg.set_viewport_size({"width": 1366, "height": 1180}); pg.select_option("#ind", "oe")
+            for cod, arq in ((SUME, "ficha_resumo_sume"), (SOUSA, "ficha_resumo_sousa"), (JP, "ficha_resumo_joao_pessoa")):
+                pg.evaluate(f"location.hash = '#mapa-{cod}'"); pg.wait_for_timeout(800); pg.screenshot(path=str(CAP / f"{arq}.png"))
+            pg.select_option("#ind", "taxa"); pg.set_viewport_size(tam)
+            pg.evaluate(f"location.hash = '#mapa-{SOUSA}'"); pg.wait_for_timeout(700)
         # Faixa etária: alternância Casos | Taxa por 100 mil/ano, com a taxa do estado como referência e aviso de valor instável
         pg.click("#painel [data-fx=taxa]"); pg.wait_for_timeout(200)
         fxt = pg.inner_text("#painel .fxcorpo")
         ok_fx = all(fmt(FXREF[(SOUSA, i)][1], 1) + (" *" if FXREF[(SOUSA, i)][0] < 10 else "") in fxt for i in range(1, 11))
         refs = pg.evaluate("[...document.querySelectorAll('#painel .fxcorpo .ref')].map(e => e.title)")
-        check(ok_fx and "valor instável" in fxt and "Ignorada" in fxt and "sem taxa" in fxt and refs == [f"Estado: {fmt(FXEST[i], 1)}" for i in range(1, 11)]
+        check(ok_fx and "valor instável" in fxt and "Ignorada" in fxt and "sem taxa" in fxt and refs == [f"Paraíba: {fmt(FXEST[i], 1)}" for i in range(1, 11)]
               and pg.get_attribute("#painel [data-fx=taxa]", "aria-pressed") == "true",
               f"{modo}: ficha de Sousa com taxa por faixa = view, taxa do estado como referência e aviso de valor instável")
         if modo == "http":
@@ -348,7 +378,7 @@ with sync_playwright() as pw:
                 rr = REF[(c, tab["per"], tab["tipo"])]
                 ok_cmp &= int(num_br(tab["linhas"]["Casos notificados"][i])) == rr["casos"]
                 ok_cmp &= abs(num_br(tab["linhas"]["Taxa por 100 mil mulheres por ano"][i]) - rr["taxa"]) <= 0.05 + 1e-9
-                ok_cmp &= abs(num_br(tab["linhas"]["Observado ÷ esperado"][i]) - rr["oe"]) <= 0.005 + 1e-9
+                ok_cmp &= abs(num_br(tab["linhas"]["Comparação com a média da Paraíba (1 = igual)"][i]) - rr["oe"]) <= 0.005 + 1e-9
             ok_cmp &= abs(num_br(tab["linhas"]["Taxa por 100 mil mulheres por ano"][-1]) - EST[(tab["per"], tab["tipo"])]) <= 0.05 + 1e-9
         check(ok_cmp, f"{modo}: comparação de 3 municípios lado a lado com a média do estado, igual à view")
         if modo == "http":
@@ -377,9 +407,9 @@ with sync_playwright() as pw:
         for c in [SOUSA, PEQ_LOC]:
             pg.evaluate(f"location.hash = '#mapa-{c}'"); pg.wait_for_timeout(500)
             txt = pg.inner_text("#painel .local")
-            ok_l = all(f"{LOCREF[(c, k)][0]} " in txt and fmt(LOCREF[(c, k)][2], 1) + "%" in txt for k in (1, 2, 3))
-            instavel = "instáveis" in txt
-            check(ok_l and instavel == (LOCREF[(c, 1)][1] < 10) and "o dado não diz o motivo" in txt and pg.locator("#painel .local .barra100 span").count() >= 1,
+            ok_l = all(f"{LOCREF[(c, k)][0]} " in txt and npct(LOCREF[(c, k)][2]) in txt for k in (1, 2, 3))
+            instavel = "mudam muito com um caso" in txt
+            check(ok_l and instavel == (LOCREF[(c, 1)][1] < 10) and "O dado não diz o motivo" in txt and pg.locator("#painel .local .barra100 span").count() >= 1,
                   f"{modo}: ficha ({REF[(c, 'all', 'total')]['nome']}) mostra onde as mulheres foram atendidas, com número, % e aviso de instabilidade quando < 10 casos")
             if modo == "http" and c == SOUSA:
                 pg.locator("#painel .local").scroll_into_view_if_needed(); pg.screenshot(path=str(CAP / "ficha_local_atendimento.png"))
@@ -393,7 +423,7 @@ with sync_playwright() as pw:
             if [i[:3] for i in itens] != esperado or any(not i[3] for i in itens):
                 dif_rede.append(c)
         nota = pg.inner_text("#painel .rede .nota")
-        check(not dif_rede and nota == "Informação declarada pela prefeitura em 2023; serviços criados depois não aparecem.",
+        check(not dif_rede and nota == "Informação declarada pela prefeitura em 2023. Serviços criados depois não aparecem.",
               f"{modo}: bloco MUNIC 2023 da ficha igual ao bruto em 10 municípios sorteados, com ícone, texto e nota fixa ({dif_rede})")
         if modo == "http":
             pg.locator("#painel .rede").scroll_into_view_if_needed(); pg.screenshot(path=str(CAP / "ficha_rede_munic.png"))
@@ -405,7 +435,7 @@ with sync_playwright() as pw:
         rot_max = {1: "Menos de 1", 2: "1 a 4", 3: "5 a 9", 4: "10 a 14", 5: "15 a 19", 6: "20 a 29", 7: "30 a 39", 8: "40 a 49", 9: "50 a 59", 10: "60 ou mais"}[i_max]
         n_serv = {k: sum(1 for x in REDE_BRUTO.values() if x[k] == "Sim") for k in COLS_REDE}
         check(f"Em taxa, a faixa etária mais atingida é {rot_max} anos." in concl and fmt(FXEST[i_max], 1) in concl
-              and f"{fmt(LOCEST[1][1], 1)}% das notificações foram feitas na região de saúde onde a mulher mora" in concl
+              and f"{npct(LOCEST[1][1])} das notificações foram feitas na região de saúde onde a mulher mora" in concl
               and all(f"{n} declaram" in concl for n in n_serv.values())
               and pg.locator("#concl li").count() == pg.locator("#concl li .perg").count() >= 10,
               f"{modo}: leituras prontas dos contextos (faixa {rot_max}, local, MUNIC) calculadas, cada uma com pergunta para a gestão")
@@ -419,14 +449,14 @@ with sync_playwright() as pw:
         check(graf["n"] == 4 and graf["dest"] == 1 and graf["cor"] == graf["ac"] and graf["rot"] == ["Sexual"] and len(graf["tipo"]) == 1 and graf["tipo"][0].startswith("Sexual") and graf["antigas"] == 0,
               f"{modo}: gráficos em cinza com uma série destacada no azul-petróleo (Sexual) e sem as 4 cores genéricas")
         frase = pg.inner_text("#localfrase")
-        esperada = (f"{fmt(LOCEST[1][1], 1)}% foram atendidas na própria região de saúde, {fmt(LOCEST[2][1], 1)}% em outra região da Paraíba "
-                    f"e {fmt(LOCEST[3][1], 1)}% fora do estado ({LOCEST[3][0]} casos).")
+        esperada = (f"Das mulheres notificadas, {npct(LOCEST[1][1])} foram atendidas na própria região de saúde, {npct(LOCEST[2][1])} em outra região da Paraíba "
+                    f"e {npct(LOCEST[3][1])} fora da Paraíba ({LOCEST[3][0]} casos).")
         check(frase == esperada, f"{modo}: frase do estado na Análise igual ao cálculo do banco ({frase!r})")
         if modo == "http":
             pg.locator("#g-local").scroll_into_view_if_needed(); pg.screenshot(path=str(CAP / "analise_local_atendimento.png"))
         pg.click("#fxAnalise [data-fxa=taxa]"); pg.wait_for_timeout(200)
         rot = pg.get_attribute("#g-faixa svg", "aria-label") or ""
-        check(all(fmt(FXEST[i], 1) in rot for i in range(1, 11)) and "estado: " + fmt(EST[("all", "total")], 1) in rot and "não tem taxa" in pg.inner_text("#fxdesc"),
+        check(all(fmt(FXEST[i], 1) in rot for i in range(1, 11)) and "Paraíba: " + fmt(EST[("all", "total")], 1) in rot and "não tem taxa" in pg.inner_text("#fxdesc"),
               f"{modo}: Análise mostra a taxa por faixa do estado com a taxa geral como referência")
         if modo == "http":
             pg.locator("#g-faixa").scroll_into_view_if_needed(); pg.screenshot(path=str(CAP / "analise_faixa_taxa.png"))
@@ -507,7 +537,7 @@ with sync_playwright() as pw:
     txt_sobre = pg.inner_text("#sobre") if pg.evaluate("document.getElementById('sobre').open") else ""
     passos_sobre = pg.locator("#sobre ol.passos li").count() if txt_sobre else 0
     check(all(x in txt_sobre.lower() for x in ["como usar", "casos notificados", "taxa por 100 mil mulheres por ano", "tipos de violência", "faixa etária",
-                                                "observado ÷ esperado", "como ler", "menos de 10 casos", "fontes"]) and passos_sobre == 3
+                                                "comparação com a média da paraíba", "observado ÷ esperado", "como ler", "menos de 10 casos", "fontes"]) and passos_sobre == 3
           and "não o total de casos que ocorrem" in pg.inner_text("header .nota-topo") and pg.locator("#carregando").count() == 0,
           "1ª visita: Sobre o painel abre sozinho com uso em 3 passos, 5 indicadores, como ler e fontes; o aviso de notificação fica sob o título (e o de carregamento some)")
     pg.screenshot(path=str(CAP / "sobre_o_painel.png"))
@@ -539,8 +569,8 @@ with sync_playwright() as pw:
     check(sem_travessao, "textos das 3 telas, do Sobre e do Tour sem travessão (—)")
     topo = pg.evaluate("[...document.querySelectorAll('header .acoes .btn')].map(b => getComputedStyle(b).borderTopStyle + '/' + getComputedStyle(b).backgroundColor)")
     estado = pg.evaluate("[document.getElementById('verEstado').getAttribute('aria-label'), document.getElementById('verEstado').getBoundingClientRect().width]")
-    check(all(t.startswith("none/") for t in topo) and estado[0] == "Ver estado inteiro" and estado[1] <= 46,
-          f"topo com Sobre, Tour e Copiar link como links de texto; 'Ver estado inteiro' como botão de ícone com rótulo acessível ({estado})")
+    check(all(t.startswith("none/") for t in topo) and estado[0] == "Ver a Paraíba inteira" and estado[1] <= 46,
+          f"topo com Sobre, Tour e Copiar link como links de texto; 'Ver a Paraíba inteira' como botão de ícone com rótulo acessível ({estado})")
     ctx.close()
     # chegar por link de ficha não abre o Sobre
     ctx = ctx_puro(viewport={"width": 1366, "height": 768}); pg = ctx.new_page()

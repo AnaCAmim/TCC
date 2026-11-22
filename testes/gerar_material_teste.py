@@ -33,13 +33,13 @@ faixa = lambda f: f.replace("-", " a ") + " anos"
 t1 = R["T1"]["municipios"]
 TAREFAS = [
     ("T1", "Gestora estadual",
-     "A Secretaria quer saber onde a notificação está mais abaixo do esperado. Encontre os 3 municípios com o menor valor de "
-     "observado ÷ esperado, considerando só os que têm pelo menos 10 casos (todos os tipos, 2019 a 2024).",
+     "A Secretaria quer saber onde a notificação está mais abaixo da média da Paraíba. Encontre os 3 municípios mais abaixo na "
+     "comparação com a média da Paraíba, considerando só os que têm pelo menos 10 casos (todos os tipos, 2019 a 2024).",
      "; ".join(f"{i + 1}º {m['nome']} ({fmt(m['oe'], 2)}; {m['casos']} casos)" for i, m in enumerate(t1)),
      "Acerto: os 3 nomes, em qualquer ordem. Parcial: 1 ou 2 nomes."),
     ("T2", "Gestora municipal",
-     "Você trabalha em Sousa. Abra a ficha do município e diga se a taxa de notificação está acima ou abaixo da média do estado.",
-     f"Abaixo. Sousa: {fmt(R['T2']['taxa_sousa'], 1)} por 100 mil mulheres por ano; estado: {fmt(R['T2']['taxa_estado'], 1)} "
+     "Você trabalha em Sousa. Abra a ficha do município e diga se a taxa de notificação está acima ou abaixo da média da Paraíba.",
+     f"Abaixo. Sousa: {fmt(R['T2']['taxa_sousa'], 1)} por 100 mil mulheres por ano; média da Paraíba: {fmt(R['T2']['taxa_estado'], 1)} "
      f"(observado ÷ esperado = {fmt(R['T2']['oe'], 2)}).",
      "Acerto: dizer \"abaixo\" (ou \"notifica menos\") olhando a ficha."),
     ("T3", "Técnico da vigilância",
@@ -67,8 +67,8 @@ for cod, persona, txt, resp, crit in TAREFAS:
     md += [f"## {cod} · {persona}", "", f"**Tarefa:** {txt}", "", f"**Resposta certa:** {resp}", "", f"**Critério:** {crit} Tempo-limite sugerido: 3 min.", ""]
 md += ["## Caminho mais curto no painel (teste-piloto automatizado)", "",
        "| Tarefa | Ações | Caminho |", "|---|---|---|",
-       "| T1 | 2 | Indicador \"Observado ÷ esperado\" → ranking \"10 menores\" |",
-       "| T2 | 1 | Buscar município: digitar \"Sousa\" e Enter (a ficha mostra a taxa, a média do estado e \"Notifica menos que a média do estado\") |",
+       "| T1 | 2 | Indicador \"Comparação com a média da Paraíba\" → ranking \"10 menores\" |",
+       "| T2 | 1 | Buscar município: digitar \"Sousa\" e Enter (a ficha mostra a taxa ao lado da média da Paraíba e \"Muito abaixo da média\") |",
        "| T3 | 1 | Buscar \"Campina Grande\" e Enter (a ficha escreve \"Faixa mais atingida: …\") |",
        "| T4 | 1 | Aba Análise (bloco \"Leituras prontas\") |",
        "| T5 | 2 | Aba Análise → Baixar tabela (CSV); ou buscar o município → Imprimir ficha |", "",
@@ -111,7 +111,7 @@ linhas = [
     ("Aba Resumo: taxa de acerto e tempo por tarefa, nota SUS média. Atualiza sozinha.", fonte),
     ("", fonte),
     ("Exemplo de preenchimento (não é dado real; não copie para as outras abas):", negrito),
-    ("  Tarefas → P01 | T2 | Sim | 48 | Não | \"Achei pela busca; li 'notifica menos que a média'.\"", fonte),
+    ("  Tarefas → P01 | T2 | Sim | 48 | Não | \"Achei pela busca; li 'muito abaixo da média'.\"", fonte),
     ("  SUS → P01 | 4 | 2 | 4 | 1 | 4 | 2 | 5 | 2 | 4 | 2  → nota calculada 80,0", fonte),
 ]
 for i, (t, f) in enumerate(linhas, start=1):

@@ -47,7 +47,7 @@ Regras para quem conduz:
 
 Tarefas (resumo; texto completo e gabarito no arquivo 02):
 1. **T1:** 3 municípios com o menor observado ÷ esperado, entre os que têm pelo menos 10 casos.
-2. **T2:** ficha de Sousa: acima ou abaixo da média do estado?
+2. **T2:** ficha de Sousa: acima ou abaixo da média da Paraíba?
 3. **T3:** faixa etária mais atingida em Campina Grande.
 4. **T4:** a violência sexual cresceu de 2019 a 2024?
 5. **T5:** baixar a tabela ou imprimir a ficha de um município.

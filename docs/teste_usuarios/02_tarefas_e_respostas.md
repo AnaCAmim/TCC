@@ -7,7 +7,7 @@ Gerado por `testes/gerar_material_teste.py` a partir de `web/dados.json`. Fonte:
 
 ## T1 · Gestora estadual
 
-**Tarefa:** A Secretaria quer saber onde a notificação está mais abaixo do esperado. Encontre os 3 municípios com o menor valor de observado ÷ esperado, considerando só os que têm pelo menos 10 casos (todos os tipos, 2019 a 2024).
+**Tarefa:** A Secretaria quer saber onde a notificação está mais abaixo da média da Paraíba. Encontre os 3 municípios mais abaixo na comparação com a média da Paraíba, considerando só os que têm pelo menos 10 casos (todos os tipos, 2019 a 2024).
 
 **Resposta certa:** 1º Sousa (0,09; 15 casos); 2º Aroeiras (0,21; 10 casos); 3º Brejo do Cruz (0,28; 10 casos)
 
@@ -15,9 +15,9 @@ Gerado por `testes/gerar_material_teste.py` a partir de `web/dados.json`. Fonte:
 
 ## T2 · Gestora municipal
 
-**Tarefa:** Você trabalha em Sousa. Abra a ficha do município e diga se a taxa de notificação está acima ou abaixo da média do estado.
+**Tarefa:** Você trabalha em Sousa. Abra a ficha do município e diga se a taxa de notificação está acima ou abaixo da média da Paraíba.
 
-**Resposta certa:** Abaixo. Sousa: 7,2 por 100 mil mulheres por ano; estado: 83,9 (observado ÷ esperado = 0,09).
+**Resposta certa:** Abaixo. Sousa: 7,2 por 100 mil mulheres por ano; média da Paraíba: 83,9 (observado ÷ esperado = 0,09).
 
 **Critério:** Acerto: dizer "abaixo" (ou "notifica menos") olhando a ficha. Tempo-limite sugerido: 3 min.
 
@@ -49,8 +49,8 @@ Gerado por `testes/gerar_material_teste.py` a partir de `web/dados.json`. Fonte:
 
 | Tarefa | Ações | Caminho |
 |---|---|---|
-| T1 | 2 | Indicador "Observado ÷ esperado" → ranking "10 menores" |
-| T2 | 1 | Buscar município: digitar "Sousa" e Enter (a ficha mostra a taxa, a média do estado e "Notifica menos que a média do estado") |
+| T1 | 2 | Indicador "Comparação com a média da Paraíba" → ranking "10 menores" |
+| T2 | 1 | Buscar município: digitar "Sousa" e Enter (a ficha mostra a taxa ao lado da média da Paraíba e "Muito abaixo da média") |
 | T3 | 1 | Buscar "Campina Grande" e Enter (a ficha escreve "Faixa mais atingida: …") |
 | T4 | 1 | Aba Análise (bloco "Leituras prontas") |
 | T5 | 2 | Aba Análise → Baixar tabela (CSV); ou buscar o município → Imprimir ficha |

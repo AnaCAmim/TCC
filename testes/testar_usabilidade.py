@@ -112,7 +112,7 @@ with sync_playwright() as p:
 
     # T1: os 3 municípios de menor observado ÷ esperado com pelo menos 10 casos
     ctx, pg, erros = nova(nav); t = Tarefa(pg)
-    t.escolher("#ind", "oe", "Indicador: Observado ÷ esperado")
+    t.escolher("#ind", "oe", "Indicador: Comparação com a média da Paraíba")
     t.clicar("#rk-menores", "Ranking: 10 menores")
     vistos = pg.evaluate("[...document.querySelectorAll('#rk a')].slice(0, 3).map(a => a.getAttribute('href').slice(6))")
     texto = pg.inner_text("#rk")
@@ -124,8 +124,8 @@ with sync_playwright() as p:
     ctx, pg, erros = nova(nav); t = Tarefa(pg)
     t.digitar_enter("#busca", "Sousa", "Busca: digitar 'Sousa' e Enter")
     ficha = pg.inner_text("#painel")
-    check(fmt(R["T2"]["taxa_sousa"], 1) in ficha and f"Média do estado: {fmt(R['T2']['taxa_estado'], 1)}" in ficha
-          and "Notifica menos que a média do estado" in ficha and R["T2"]["resposta"] == "abaixo", "T2: ficha de Sousa mostra taxa, média do estado e a leitura 'notifica menos'")
+    check(fmt(R["T2"]["taxa_sousa"], 1) in ficha and f"contra {fmt(R['T2']['taxa_estado'], 1)} na média da Paraíba" in ficha
+          and "Muito abaixo da média" in ficha and R["T2"]["resposta"] == "abaixo", "T2: ficha de Sousa mostra a taxa ao lado da média da Paraíba e a leitura 'muito abaixo da média'")
     pg.screenshot(path=str(CAP / "piloto_T2.png")); registro["T2"] = t.acoes; check(not erros, f"T2: sem erros {erros[:1]}"); ctx.close()
 
     # T3: faixa etária mais atingida em Campina Grande
