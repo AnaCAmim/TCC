@@ -98,6 +98,10 @@ select,input[type=search],input[type=text]{width:100%;font:inherit;padding:7px 9
 .legend .hist{height:6px;background:var(--barra);flex:none;border-radius:1px}
 .legend .cont{min-width:2.2em;text-align:right;color:var(--ink-2);font-variant-numeric:tabular-nums}
 .legend .media{color:var(--ink)}
+.legend .rot small{display:block;margin:0;font-size:12px;color:var(--ink-3)}
+.legend .rot small.media{color:var(--ink-2)}
+.ind5 .tec{font-size:12px;color:var(--ink-3);margin-top:2px}
+.ind5 .it-oe .v{font-size:19px}
 .legend .sw.hach{background:repeating-linear-gradient(45deg,rgba(38,37,34,.55) 0 1px,transparent 1px 6px),#fecc5c}
 .legend svg.circ{display:block;margin:4px 0 2px}
 .legend svg.circ text{font-size:12px;fill:var(--ink-2)}
