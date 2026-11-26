@@ -123,8 +123,6 @@ Resultado atual: 67 verificações de dados, 169 do painel no Chrome (168 no Fir
 - [`docs/lighthouse/`](docs/lighthouse/): relatórios do Lighthouse (desempenho, acessibilidade, boas práticas e SEO).
 - [`docs/teste_usuarios/`](docs/teste_usuarios/): roteiro de 20 minutos, tarefas com gabarito, questionário SUS (versão brasileira validada), perguntas abertas, termo de consentimento e planilha de registro com a nota SUS calculada por fórmula. O gabarito e a planilha são gerados por `python testes/gerar_material_teste.py` (precisa de `openpyxl`).
 
-O teste com usuários está planejado, com 5 participantes do público-alvo, e o material está pronto; os resultados serão apresentados no artigo.
-
 ## Estrutura
 
 ```

@@ -1,7 +1,5 @@
 # Termo de Consentimento Livre e Esclarecido
 
-> Modelo de termo. Se a pesquisa for submetida ao Comitê de Ética em Pesquisa, este texto será substituído pelo modelo aprovado pelo Comitê.
-
 **Pesquisa:** Avaliação de usabilidade de um painel de indicadores de violência contra a mulher na Paraíba
 **Responsável:** Ana Clara Mendes Amim, estudante de Sistemas de Informação, UFPB, Campus IV (Rio Tinto)
 **Orientador:** Prof. Dr. José Adson Oliveira Guedes da Cunha

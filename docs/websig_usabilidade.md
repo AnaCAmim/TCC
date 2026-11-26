@@ -86,7 +86,7 @@ A cópia para a área de transferência (Copiar link) e o PDF da ficha só são 
 
 A avaliação foi feita por inspeção e por testes automatizados; ainda não houve teste com leitor de tela real (NVDA ou VoiceOver) nem em Safari num aparelho Apple, embora o WebKit passe em todos os testes. Pelo teclado, os 223 municípios do mapa vêm depois do ranking na ordem do Tab; quem não quiser percorrê-los pode usar a busca ou "Ver como tabela", e com o filtro de região só os municípios da região entram nessa ordem.
 
-O próximo passo é o teste com 5 pessoas do público-alvo (gestoras e técnicos de saúde, de assistência social e de políticas para mulheres), com o roteiro, as tarefas com gabarito, o questionário SUS e a planilha de registro de [`docs/teste_usuarios/`](teste_usuarios/). As sessões só começam depois de definida, com a orientação, a necessidade de submissão ao Comitê de Ética em Pesquisa (Resolução CNS nº 510/2016).
+O material para um teste com 5 pessoas do público-alvo (gestoras e técnicos de saúde, de assistência social e de políticas para mulheres) está em [`docs/teste_usuarios/`](teste_usuarios/): roteiro, tarefas com gabarito, questionário SUS e planilha de registro.
 
 ## 7. Histórico das Revisões de Interface
 

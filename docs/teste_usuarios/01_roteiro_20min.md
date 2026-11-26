@@ -2,7 +2,7 @@
 
 Painel de indicadores de violência contra a mulher na Paraíba (SINAN 2019–2024). Sessão individual, presencial ou remota (videochamada com compartilhamento de tela).
 
-> **Ética.** O teste avalia o sistema, não as pessoas, e não coleta nome nem dado sensível. A Resolução CNS nº 510/2016 (art. 1º, parágrafo único) dispensa de registro no sistema CEP/Conep algumas pesquisas sem identificação dos participantes. As sessões só começam depois de definida, com a orientação, a necessidade de submissão ao Comitê de Ética em Pesquisa.
+> O teste avalia o sistema, não as pessoas, e não coleta nome nem dado sensível.
 
 ## Participantes e preparo
 
