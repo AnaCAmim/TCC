@@ -1,4 +1,4 @@
-# Dados brutos: fontes e datas de acesso
+# Dados Brutos: Fontes e Datas de Acesso
 
 | Arquivo | Fonte | Recorte | Acesso |
 |---|---|---|---|
@@ -15,10 +15,10 @@
 Observações:
 - O SINAN de 2023 e 2024 ainda pode ser revisado; uma nova extração pode mudar esses anos.
 - O nome oficial vem do IBGE. A malha tem 3 nomes antigos (Santarém, Seridó, Campo de Santana); o IBGE usa Joca Claudino, São Vicente do Seridó e Tacima. O IBGE grafa "Quixaba", sem acento.
-- Região de saúde: nomes oficiais do DATASUS sem o " - PB" (ex.: "1ª Região Mata Atlântica", "2ª Região"). A Base Territorial reflete a regionalização pactuada na CIB-PB; não foi conferida contra a resolução estadual vigente [VERIFICAR, opcional].
-- Totais conferidos: 10.344 notificações, 223 municípios, 2.055.832 mulheres. A população de cada município conferiu, um a um, com a usada no painel enxuto.
+- Região de saúde: nomes oficiais do DATASUS sem o " - PB" (ex.: "1ª Região Mata Atlântica", "2ª Região"). A Base Territorial reflete a regionalização pactuada na Comissão Intergestores Bipartite da Paraíba (CIB-PB); ela não foi comparada, item a item, com a resolução estadual vigente.
+- Totais conferidos: 10.344 notificações, 223 municípios, 2.055.832 mulheres. A população de cada município conferiu, uma a uma, com a de uma extração anterior do SIDRA feita no início do trabalho.
 
-## Amostras do levantamento de bases candidatas (`amostras/`, 18/11/2026)
+## Amostras do Levantamento de Bases (`amostras/`, 18/11/2026)
 
 Só para testar o acesso; **nada disto entra no painel** (ver `docs/bases_candidatas.md`). O SIDRA por idade e a MUNIC 2023 saíram das amostras e viraram dados brutos do painel (tabela acima).
 

@@ -1,6 +1,8 @@
-# Bases candidatas para o painel: levantamento (18/11/2026)
+# Levantamento de Bases de Dados Complementares
 
-Levantamento feito **sem mudar nada no painel**. Atualização de 18/11/2026: a seção 1 (faixa etária) e a seção 3 (rede, MUNIC 2023) foram implementadas no painel; a seção 2 (residência × notificação) também foi implementada, no nível de região de saúde (ver a explicação dos 122 abaixo). Regra do projeto: só os 5 indicadores (casos, taxa por 100 mil mulheres por ano, tipos, faixa etária, observado ÷ esperado), tudo explicável e recalculável numa planilha. Toda base abaixo precisaria da aprovação do orientador antes de entrar.
+Levantamento feito em 18/11/2026 para avaliar bases públicas que pudessem complementar o painel. O critério foi o mesmo do restante do trabalho: o painel mostra só os 5 indicadores (casos notificados, taxa por 100 mil mulheres por ano, tipos de violência, faixa etária e comparação com a média da Paraíba), e tudo precisa ser explicável e recalculável numa planilha. Uma base só entraria se reforçasse um desses indicadores ou desse contexto à ficha do município, sem criar indicador novo.
+
+**Resultado.** Três bases foram incorporadas ao painel: a população feminina por faixa etária (seção 1), que transformou a faixa etária em taxa; o local de notificação por região de saúde (seção 2), como contexto; e os serviços declarados pela prefeitura na MUNIC 2023 (seção 3), também como contexto. As outras três (seções 4 a 6) ficaram de fora, pelos motivos indicados em cada uma.
 
 Cada acesso foi testado em 18/11/2026, e as amostras estão em `dados/brutos/amostras/`, descritas em `dados/brutos/FONTES.md`. "Sem dado" quer dizer que a fonte não informa, e não que o serviço não existe.
 
@@ -14,7 +16,7 @@ Cada acesso foi testado em 18/11/2026, e as amostras estão em `dados/brutos/amo
 | Cobertura municipal | **Sim**: 223 municípios. A soma dá 2.055.832, o mesmo denominador do painel |
 | Anos | 2022 (Censo). Um único ano, como o denominador atual |
 | Formato e acesso | JSON pela API, sem cadastro; também há download na página do SIDRA |
-| Licença | Dados públicos do IBGE, com citação da fonte. [VERIFICAR o termo de uso do IBGE] |
+| Licença | Dados públicos do IBGE; uso livre com citação da fonte |
 | Teste | OK. Os grupos de 5 anos foram somados nas 10 faixas do SINAN. "1 a 4" = "0 a 4" − "Menos de 1"; "60 e mais" = soma dos grupos de 60 em diante. Em cada município, as faixas somam o total |
 | Como entraria | A faixa etária deixa de ser só contagem e ganha a taxa: "casos por ano a cada 100 mil meninas ou mulheres daquela idade". |
 | Fórmula | taxa da faixa = casos da faixa ÷ mulheres da faixa × 100.000 ÷ 6 (a mesma fórmula da taxa atual) |
@@ -30,7 +32,7 @@ Cada acesso foi testado em 18/11/2026, e as amostras estão em `dados/brutos/amo
 | Cobertura municipal | **Parcial**. O TABNET só aceita município na *linha*: município × município não sai numa consulta só ("Tabela de conversão não encontrada"). O que funciona é residência (município) × **região de saúde de notificação**. O cruzamento município × município exige os microdados |
 | Anos | 2019–2024 (o mesmo recorte do painel; 2023 e 2024 ainda podem ser revisados) |
 | Formato e acesso | TABNET: formulário (POST), resposta em texto. Microdados: arquivos `.dbc` de 21 a 46 MB por ano, Brasil inteiro; precisam de um programa para descompactar (pacote não padrão do Python ou do R) |
-| Licença | Dados públicos do Ministério da Saúde (LAI). [VERIFICAR licença formal; o TABNET não indica uma] |
+| Licença | Dados públicos do Ministério da Saúde, de acesso livre (Lei de Acesso à Informação); o TABNET não indica uma licença formal |
 | Teste | OK no nível de região. Amostra: 220 municípios, 10.222 notificações; **92,3% notificadas na própria região de saúde**. Faltam 122 em relação aos 10.344: são **residentes da PB notificadas em outro estado** (explicação abaixo) |
 | Como entraria | Na ficha: "x% das notificações de mulheres deste município foram feitas em outra região de saúde" (mais tarde, "em outro município"). |
 | Fórmula | % fora = notificações de residentes feitas fora do município (ou da região) ÷ total de notificações de residentes × 100 |
@@ -49,7 +51,7 @@ Cada acesso foi testado em 18/11/2026, e as amostras estão em `dados/brutos/amo
 - A tabulação por notificação tem 168 municípios, **todos da Paraíba** (código 25xxxx), sem linha de "ignorado". O total cruzado (residência × região de notificação) dá os mesmos 10.222.
 - Conclusão: a base `violepb` reúne as notificações de **residentes da PB**. São 122 mulheres paraibanas (1,2%) **notificadas por serviços de outros estados**. Como a tabela de conversão do TABNET só lista municípios de notificação da PB, essas notificações somem quando se tabula pelo local de notificação. Elas contam no painel, que usa o município de residência.
 - O mesmo raciocínio indica que não entram residentes de outros estados notificados na PB: a soma por notificação (10.222) não passa da soma cruzada.
-- [VERIFICAR, opcional] o estado de notificação dessas 122 nos microdados `VIOLBR*.dbc` (campo do município de notificação com UF ≠ 25).
+- Uma conferência possível, não feita aqui, é localizar o estado de notificação dessas 122 nos microdados `VIOLBR*.dbc` (município de notificação com UF diferente de 25).
 - Amostras: `dados/brutos/amostras/tabnet_sinan_notificacao_x_ano_2019-2024.txt` e `tabnet_sinan_residencia_x_regiao_notificacao_2019-2024.txt`.
 
 ## 3. Rede de atendimento à mulher
@@ -60,10 +62,10 @@ Cada acesso foi testado em 18/11/2026, e as amostras estão em `dados/brutos/amo
 | Cobertura municipal | **Sim**: 223 municípios. É a prefeitura que responde |
 | Anos | 2023 (MUNIC 2018 também tem o bloco, para comparação) |
 | Formato e acesso | Planilha .xlsx/.ods de 23 MB, download direto. Não foi guardada no repositório; só a amostra da PB |
-| Licença | Dados públicos do IBGE, com citação. [VERIFICAR o termo de uso] |
+| Licença | Dados públicos do IBGE; uso livre com citação da fonte |
 | Variáveis testadas (PB, 2023) | Organismo executivo de políticas para mulheres (MPPM01): 139 Sim. Plano municipal (MPPM11): 64 Sim. Conselho municipal (MPPM13): 107 Sim. Casa-abrigo ou acolhimento (MPPM20): 6 Sim. CEAM/NIAM, centro de referência (MPPM24a1): 27 Sim. Serviço especializado em violência sexual (MPPM24a2): 28 Sim. Delegacia especializada da mulher (MSEG168): 13 Sim, 158 Não, **52 sem dado**. Abrigo institucional do SUAS (MASS2514): 2 Sim |
 | Juizado / vara | **Sem dado** na MUNIC 2023. O TJPB tem a página da Coordenadoria da Mulher (`tjpb.jus.br/coordenadoria-mulher/juizados`), mas ela recusou acesso automático (HTTP 403); conferir à mão |
-| Fontes estaduais | SEMDH-PB, SESDS-PB e TJPB: **nenhuma lista oficial estruturada (CSV ou planilha) encontrada**. Notícias de jun/2025 citam 21 DEAMs em 19 municípios, mas é fonte secundária [VERIFICAR com a Coordenadoria das DEAMs]. Caminho: pedido via LAI à SESDS e à SEMDH |
+| Fontes estaduais | SEMDH-PB, SESDS-PB e TJPB: **nenhuma lista oficial estruturada (CSV ou planilha) encontrada**. Notícias de jun/2025 citam 21 DEAMs em 19 municípios, mas é fonte secundária, sem confirmação oficial. Caminho: pedido via Lei de Acesso à Informação à SESDS e à SEMDH |
 | Como entraria | Na ficha, como contexto e não como indicador: "Serviços informados pela prefeitura em 2023: organismo de políticas para mulheres (sim/não/sem dado), centro de referência, casa-abrigo, delegacia da mulher". |
 | Fórmula | Nenhuma (sim / não / sem dado) |
 | Situação | **Implementado no painel**: tabela `rede_atendimento` (organismo, centro de referência, casa-abrigo, delegacia especializada; a MUNIC 2023 não pergunta sobre "sala" em delegacia comum) e bloco na ficha com ícone + texto |
@@ -75,13 +77,13 @@ Cada acesso foi testado em 18/11/2026, e as amostras estão em `dados/brutos/amo
 |---|---|
 | Fonte e link | SIM/TABNET, `tabnet.datasus.gov.br/cgi/deftohtm.exe?sim/cnv/obt10pb.def` (Mortalidade – Paraíba), óbitos por residência, Grupo CID-10 "Agressões" |
 | Cobertura municipal | **Sim**, por município de residência |
-| Anos | 2019–2024, disponíveis no TABNET (o formulário já lista até 2026; os anos recentes podem ser preliminares [VERIFICAR]) |
+| Anos | 2019–2024, disponíveis no TABNET (o formulário já lista até 2026; os anos mais recentes podem ser preliminares) |
 | Formato e acesso | TABNET (POST); microdados no FTP do DATASUS |
-| Licença | Dados públicos do Ministério da Saúde. [VERIFICAR licença formal] |
-| Teste | OK: **482 óbitos** (72, 94, 83, 84, 79, 70 por ano), 4 deles em "município ignorado". Os 478 restantes batem com a extração anterior do projeto. Só 123 dos 223 municípios têm ao menos 1 óbito |
+| Licença | Dados públicos do Ministério da Saúde; o TABNET não indica uma licença formal |
+| Teste | OK: **482 óbitos** (72, 94, 83, 84, 79, 70 por ano), 4 deles em "município ignorado". Os 478 restantes batem com uma extração anterior, feita no início do trabalho. Só 123 dos 223 municípios têm ao menos 1 óbito |
 | Como entraria | — (ver riscos) |
 | Fórmula | taxa de óbitos = óbitos ÷ mulheres × 100.000 ÷ 6 |
-| Riscos de interpretação | **Fora da regra atual**: a decisão de 18/11/2026 tirou os óbitos do SIM do painel e do artigo. Os números são muito pequenos por município (quase todos abaixo de 10). Há possível má classificação (Y10–Y34, intenção indeterminada). "Agressão" não é sinônimo de feminicídio |
+| Riscos de interpretação | **Fora do recorte do trabalho**, que se limita aos 5 indicadores de notificação. Os números são muito pequenos por município (quase todos abaixo de 10). Há possível má classificação (Y10–Y34, intenção indeterminada). "Agressão" não é sinônimo de feminicídio |
 
 ## 5. Estabelecimentos de saúde por município (CNES)
 
@@ -91,7 +93,7 @@ Cada acesso foi testado em 18/11/2026, e as amostras estão em `dados/brutos/amo
 | Cobertura municipal | **Sim**: 223 municípios |
 | Anos | Mensal; o formulário oferece competências até out/2026. A amostra é de dez/2024 |
 | Formato e acesso | TABNET (POST), texto |
-| Licença | Dados públicos do Ministério da Saúde. [VERIFICAR licença formal] |
+| Licença | Dados públicos do Ministério da Saúde; o TABNET não indica uma licença formal |
 | Teste | OK: 8.503 estabelecimentos em dez/2024. Centro de saúde/UBS: 1.605, em 219 municípios. Hospital geral: 110, em 69. Unidade mista: 38, em 35. Pronto atendimento: 29, em 24 |
 | Como entraria | Na ficha, como contexto: "Em dez/2024 o município tinha x UBS, y hospitais e z pronto atendimentos (CNES)". |
 | Fórmula | Contagem, ou UBS por 10 mil mulheres = UBS ÷ mulheres × 10.000 |
@@ -110,10 +112,10 @@ Cada acesso foi testado em 18/11/2026, e as amostras estão em `dados/brutos/amo
 
 ---
 
-## Recomendação (até 3 bases, todas dependendo do orientador)
+## Bases Incorporadas e Bases Descartadas
 
-1. **População feminina por faixa etária (SIDRA 9514).** É a mais forte. Não cria indicador novo: transforma a faixa etária (indicador 4) em taxa, com a mesma fórmula, mesma fonte e mesmo ano do denominador atual, e é recalculável numa planilha. A amostra já está conferida (soma 2.055.832). Mostraria, por exemplo, que a taxa mais alta é de 10 a 14 anos, embora 20 a 29 tenha mais casos.
-2. **MUNIC 2023, rede de atendimento.** Como contexto na ficha (sim / não / sem dado), sem fórmula. Responde à pergunta do gestor "que serviço existe aqui?". Tem limite: é autodeclaração e não informa juizado.
-3. **SINAN residência × região de notificação.** Mesma base do painel. Mostra onde as mulheres são notificadas (hoje, 92,3% na própria região de saúde). Começaria no nível de região, que o TABNET entrega; o nível municipal fica para depois, com os microdados.
+1. **População feminina por faixa etária (SIDRA 9514), incorporada.** É a mais forte. Não cria indicador novo: transforma a faixa etária (indicador 4) em taxa, com a mesma fórmula, mesma fonte e mesmo ano do denominador atual, e é recalculável numa planilha. A soma confere com o denominador (2.055.832). Mostra, por exemplo, que a taxa mais alta é a de 10 a 14 anos, embora a faixa de 20 a 29 tenha mais casos.
+2. **MUNIC 2023, rede de atendimento, incorporada.** Como contexto na ficha (sim / não / sem dado), sem fórmula. Responde à pergunta do gestor "que serviço existe aqui?". Tem limite: é autodeclaração e não informa juizado.
+3. **SINAN residência × região de notificação, incorporada.** Mesma base do painel. Mostra onde as mulheres são notificadas: 91,2% na própria região de saúde, sobre os 10.344 casos. Entrou no nível de região, que o TABNET entrega; o nível municipal exigiria os microdados.
 
-Não recomendadas agora: SIM (excluído pela decisão de 18/11/2026; números pequenos), CNES (só contexto, sem relação direta com violência), Ligue 180 (sem dado aberto por município) e medidas protetivas (comarca ≠ município; acesso instável).
+Descartadas: SIM (fora do recorte dos 5 indicadores; números pequenos por município), CNES (só contexto, sem relação direta com a violência), Ligue 180 (sem dado aberto por município) e medidas protetivas (a comarca não coincide com o município; acesso instável).
