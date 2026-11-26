@@ -1,82 +1,103 @@
 # Painel de Indicadores de Violência contra a Mulher na Paraíba
 
-Trabalho de Conclusão de Curso · Bacharelado em Sistemas de Informação · UFPB, Centro de Ciências Aplicadas e Educação (CCAE) · 2026<br>
-Autora: Ana Clara Mendes Amim<br>
-Orientador: Prof. Dr. José Adson Oliveira Guedes da Cunha
+Painel web com as notificações de violência contra a mulher nos 223 municípios da Paraíba, de 2019 a 2024, a partir de dados públicos do SINAN e do Censo 2022.
 
-Painel publicado: <https://anacamim.github.io/TCC/>
+**Acesse:** <https://anacamim.github.io/TCC/>
 
-Painel web com as notificações de violência contra a mulher nos 223 municípios da Paraíba, de 2019 a 2024 (SINAN). Mostra 5 indicadores por município, tipo de violência e período: casos notificados, taxa por 100 mil mulheres por ano, tipos de violência, faixa etária e comparação com a média da Paraíba (observado ÷ esperado).
+![Tela do mapa com a ficha de um município](capturas/1366_claro_mapa_ficha.png)
 
-![Mapa com a ficha de um município](capturas/1366_claro_mapa_ficha.png)
+## Funcionalidades
+
+- 5 indicadores por município, tipo de violência e período: casos notificados, taxa por 100 mil mulheres por ano, tipos de violência, faixa etária e comparação com a média da Paraíba.
+- Filtros por indicador, tipo de violência, período (cada ano ou 2019 a 2024) e região de saúde.
+- Mapa coroplético (taxa e comparação com a média) e de círculos proporcionais (casos).
+- Ranking dos 10 maiores e dos 10 menores valores.
+- Ficha do município, com impressão e link direto (`#mapa-<código IBGE>`).
+- Comparação de 2 ou 3 municípios.
+- Tabela dos municípios com download em CSV e exportação do mapa em PNG.
+- Tela "Como calcular", com a fórmula e um exemplo de cada indicador.
+- Temas claro e escuro; uso completo pelo teclado.
+
+## Tecnologias
+
+- **Banco de dados:** PostgreSQL 16 com PostGIS 3.4, em Docker
+- **Pipeline:** Python 3 (biblioteca padrão; `extrair_munic2023.py` usa openpyxl)
+- **Front-end:** HTML, CSS e JavaScript, sem framework, com Leaflet 1.9.4
+- **Testes:** Playwright (Chrome, Firefox e WebKit)
+- **Publicação:** GitHub Pages
 
 ## Arquitetura
 
 ```
-dados/brutos/            arquivos originais (TABNET/SINAN, IBGE, DATASUS)
-      │  pipeline/conferir.py          confere os totais dos arquivos
+dados/brutos/          arquivos originais (SINAN/TABNET, IBGE, DATASUS)
+      │  pipeline/conferir.py
       ▼
-PostgreSQL 16 + PostGIS 3.4 (Docker)
-      │  sql/01_schema.sql             tabelas
-      │  sql/02_carga.sql              carga numa transação; aborta se os totais não baterem
-      │  sql/03_views_indicadores.sql  fórmulas dos indicadores (views)
+PostgreSQL + PostGIS   sql/01_schema.sql, 02_carga.sql, 03_views_indicadores.sql
+      │  pipeline/exportar.py
       ▼
-pipeline/exportar.py     gera web/dados.json e web/dados.js a partir das views
+web/dados.json         dados do painel (web/dados.js para abrir sem servidor)
       ▼
-web/                     front estático: HTML, CSS, JavaScript e Leaflet
+web/                   front-end estático
 ```
 
-- **Banco.** Os indicadores são calculados nas views SQL. A carga confere os totais validados (10.344 casos, 223 municípios, 2.055.832 mulheres) e, se algo não bater, desfaz tudo e mantém o banco anterior.
-- **Exportação.** `exportar.py` junta as views, a malha municipal e os contornos do estado e das 16 regiões de saúde (`ST_Union` no PostGIS) num único `dados.json`. O `dados.js` tem o mesmo conteúdo, para abrir o painel sem servidor.
-- **Front.** Página estática, sem framework e sem etapa de build. Lê `dados.json` quando servida por http (GitHub Pages) e `dados.js` quando aberta com duplo clique. O JavaScript fica em scripts comuns, sem módulos ES, porque o navegador bloqueia módulos em `file://`. Módulos em `web/js/`: `dados` (carga), `calculo` (as mesmas fórmulas das views), `mapa` (mapa, legenda, ranking e ficha), `analise` (gráficos e tabela), `tour`, `util` e `app` (telas e endereços).
-- **Coerência.** O front recalcula os indicadores para cada filtro com as mesmas fórmulas das views, e um teste compara os dois resultados nas 6.244 combinações de município, tipo e período.
-
-Telas: **Mapa** (filtros, mapa coroplético ou de círculos proporcionais, ranking e ficha do município), **Análise** (gráficos, tabela e CSV) e **Como calcular** (fórmula e exemplo de cada indicador).
-
-## Tecnologias
-
-PostgreSQL 16, PostGIS 3.4, Docker, Python 3 (biblioteca padrão no pipeline; Playwright nos testes), HTML, CSS, JavaScript, Leaflet 1.9.4 e GitHub Pages.
+1. `conferir.py` confere os totais dos arquivos brutos.
+2. A carga roda numa única transação e é desfeita se os totais não baterem (10.344 casos, 223 municípios, 2.055.832 mulheres).
+3. As views SQL calculam os indicadores.
+4. `exportar.py` gera `dados.json` e `dados.js` a partir do banco.
+5. O front-end lê `dados.json` quando servido por http e `dados.js` quando aberto com duplo clique. Ele recalcula os indicadores para cada filtro com as mesmas fórmulas das views (`web/js/calculo.js`).
 
 ## Indicadores
 
 | Indicador | Cálculo |
 |---|---|
-| Casos notificados | Contagem do SINAN: mulheres, município de residência, sem violência autoprovocada |
+| Casos notificados | Notificações de mulheres, por município de residência, sem violência autoprovocada |
 | Taxa por 100 mil mulheres por ano | casos ÷ mulheres × 100.000 ÷ número de anos |
-| Tipos de violência | Casos de violência física, psicológica/moral e sexual (uma notificação pode ter mais de um tipo) |
+| Tipos de violência | Casos de violência física, psicológica/moral e sexual |
 | Faixa etária | Casos por faixa; taxa da faixa = casos da faixa ÷ mulheres da faixa × 100.000 ÷ 6 |
-| Comparação com a média da Paraíba | esperado = mulheres do município × (casos da Paraíba ÷ mulheres da Paraíba); índice = casos ÷ esperado |
+| Comparação com a média da Paraíba | casos ÷ esperado, com esperado = mulheres do município × (casos da Paraíba ÷ mulheres da Paraíba) |
 
-Denominador: mulheres do Censo 2022 (IBGE). Views: `vw_indicador_municipio_ano_tipo`, `vw_indicador_estado`, `vw_indicador_regiao`, `vw_faixa_municipio`, `vw_faixa_estado`, `vw_local_atendimento` e `vw_local_estado`.
+As fontes e datas de acesso de cada arquivo estão em [`dados/brutos/FONTES.md`](dados/brutos/FONTES.md).
 
-Fontes: SINAN/TABNET (Ministério da Saúde), IBGE (Censo 2022, SIDRA 9514, MUNIC 2023 e localidades), DATASUS (Base Territorial, regiões de saúde) e malha municipal via tbrugz/geodata-br (CC0). Detalhes em [`dados/brutos/FONTES.md`](dados/brutos/FONTES.md).
+## Como Executar
 
-## Como Rodar
+**Só o painel:** abra `web/index.html` no navegador, ou publique a pasta `web/` em um servidor estático.
 
-- **Só o painel:** duplo clique em `web/index.html`, ou publicar a pasta `web/` em qualquer servidor estático.
-- **Tudo a partir dos dados brutos** (Windows, Docker Desktop e Python 3): `atualizar.bat` confere os brutos, carrega o banco (container `pgtcc`, banco `websig`), cria as views, exporta os dados do painel e roda os testes.
+**Do zero, a partir dos dados brutos.** Pré-requisitos: Windows, Docker Desktop aberto, Python 3 e Google Chrome.
+
+```
+atualizar.bat
+```
+
+O script confere os dados brutos, carrega o banco (container `pgtcc`, banco `websig`), cria as views, exporta os dados do painel e roda os testes. Na primeira execução, cria o ambiente `.venv` com o Playwright.
 
 ## Testes
 
-- `testes/testar_dados.py`: totais e coerência do banco (67 verificações).
-- `testes/testar_front.py`: o painel com Playwright, nos dois modos de abertura, comparado com as views (169 verificações).
-- `testes/testar_usabilidade.py`: tarefas, contraste, daltonismo e celular (34 verificações).
+| Arquivo | O que testa |
+|---|---|
+| `testes/testar_dados.py` | Totais e coerência do banco |
+| `testes/testar_front.py` | Painel no navegador, comparado com as views, nos modos arquivo e servidor |
+| `testes/testar_usabilidade.py` | Tarefas, contraste, daltonismo e tela de celular |
 
-`testar_navegadores.bat` repete os dois últimos no Firefox e no WebKit.
+Os testes rodam no `atualizar.bat`. Para repeti-los no Firefox e no WebKit, use `testar_navegadores.bat`.
 
-## Estrutura
+## Estrutura do Projeto
 
 ```
-dados/brutos/   arquivos originais e FONTES.md
+dados/brutos/   dados originais e FONTES.md
 sql/            esquema, carga e views
-pipeline/       conferir.py, exportar.py, banco.py, extrair_munic2023.py
-web/            o painel (index.html, css/, js/, vendor/leaflet, fonts/, dados.json, dados.js)
-testes/         testes automatizados e gerador do material do teste com usuários
-docs/           avaliação de usabilidade, bases avaliadas, Lighthouse, teste com usuários
+pipeline/       scripts Python de conferência e exportação
+web/            front-end (index.html, css/, js/, vendor/, fonts/)
+testes/         testes automatizados
+docs/           avaliação de usabilidade, bases avaliadas e relatórios do Lighthouse
 ```
 
-Documentação: [`docs/websig_usabilidade.md`](docs/websig_usabilidade.md) (avaliação de usabilidade e acessibilidade), [`docs/bases_candidatas.md`](docs/bases_candidatas.md), [`docs/lighthouse/`](docs/lighthouse/) e [`docs/teste_usuarios/`](docs/teste_usuarios/).
+## Autoria
+
+Trabalho de Conclusão de Curso do Bacharelado em Sistemas de Informação, Universidade Federal da Paraíba (UFPB), Centro de Ciências Aplicadas e Educação (CCAE), 2026.
+
+- **Autora:** Ana Clara Mendes Amim
+- **Orientador:** Prof. Dr. José Adson Oliveira Guedes da Cunha
 
 ## Licença
 
-Código sob licença MIT ([`LICENSE`](LICENSE)); textos, documentação e capturas sob CC BY 4.0 ([`LICENSE-DOCS`](LICENSE-DOCS)). Leaflet (BSD 2-Clause) e IBM Plex (SIL OFL) têm licenças próprias.
+Código sob a licença MIT ([`LICENSE`](LICENSE)). Textos, documentação e capturas de tela sob CC BY 4.0 ([`LICENSE-DOCS`](LICENSE-DOCS)).

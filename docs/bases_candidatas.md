@@ -65,7 +65,7 @@ Cada acesso foi testado em 18/11/2026, e as amostras estão em `dados/brutos/amo
 | Licença | Dados públicos do IBGE; uso livre com citação da fonte |
 | Variáveis testadas (PB, 2023) | Organismo executivo de políticas para mulheres (MPPM01): 139 Sim. Plano municipal (MPPM11): 64 Sim. Conselho municipal (MPPM13): 107 Sim. Casa-abrigo ou acolhimento (MPPM20): 6 Sim. CEAM/NIAM, centro de referência (MPPM24a1): 27 Sim. Serviço especializado em violência sexual (MPPM24a2): 28 Sim. Delegacia especializada da mulher (MSEG168): 13 Sim, 158 Não, **52 sem dado**. Abrigo institucional do SUAS (MASS2514): 2 Sim |
 | Juizado / vara | **Sem dado** na MUNIC 2023. O TJPB tem a página da Coordenadoria da Mulher (`tjpb.jus.br/coordenadoria-mulher/juizados`), mas ela recusou acesso automático (HTTP 403); conferir à mão |
-| Fontes estaduais | SEMDH-PB, SESDS-PB e TJPB: **nenhuma lista oficial estruturada (CSV ou planilha) encontrada**. Notícias de jun/2025 citam 21 DEAMs em 19 municípios, mas é fonte secundária, sem confirmação oficial. Caminho: pedido via Lei de Acesso à Informação à SESDS e à SEMDH |
+| Fontes estaduais | SEMDH-PB, SESDS-PB e TJPB: **nenhuma lista oficial estruturada (CSV ou planilha) encontrada**. Caminho: pedido via Lei de Acesso à Informação à SESDS e à SEMDH |
 | Como entraria | Na ficha, como contexto e não como indicador: "Serviços informados pela prefeitura em 2023: organismo de políticas para mulheres (sim/não/sem dado), centro de referência, casa-abrigo, delegacia da mulher". |
 | Fórmula | Nenhuma (sim / não / sem dado) |
 | Situação | **Implementado no painel**: tabela `rede_atendimento` (organismo, centro de referência, casa-abrigo, delegacia especializada; a MUNIC 2023 não pergunta sobre "sala" em delegacia comum) e bloco na ficha com ícone + texto |
@@ -103,7 +103,7 @@ Cada acesso foi testado em 18/11/2026, e as amostras estão em `dados/brutos/amo
 
 | Item | Resultado |
 |---|---|
-| Ligue 180 | Ministério das Mulheres: "Painel de Dados do Ligue 180" (Power BI, lançado em ago/2025) e "Painel da Rede". **Nenhum arquivo aberto por município foi encontrado.** O conjunto aberto do MDHC no dados.gov.br ("Ouvidoria Nacional de Direitos Humanos – ONDH", CC-BY, CSV trimestral desde 2020) é do **Disque 100**, não do Ligue 180. Caminho: pedido via LAI ao Ministério das Mulheres |
+| Ligue 180 | Ministério das Mulheres: "Painel de Dados do Ligue 180" (Power BI) e "Painel da Rede". **Nenhum arquivo aberto por município foi encontrado.** O conjunto aberto do MDHC no dados.gov.br ("Ouvidoria Nacional de Direitos Humanos – ONDH", CC-BY, CSV trimestral desde 2020) é do **Disque 100**, não do Ligue 180. Caminho: pedido via LAI ao Ministério das Mulheres |
 | Disque 100 (alternativa) | Tem as colunas `Município` (código IBGE) e `Município_da_vítima` (amostra do cabeçalho). Cada trimestre tem cerca de 940 MB, Brasil inteiro e todos os grupos vulneráveis. Risco: denúncia ≠ caso, uma denúncia pode ter várias violações, e o local da denúncia pode não ser o da vítima |
 | Medidas protetivas | CNJ, "Painel da Violência Doméstica" (filtro por tribunal e ano desde 2020; painel interativo, não arquivo). API pública do **DataJud** (`api-publica.datajud.cnj.jus.br/api_publica_tjpb`, chave pública divulgada pelo CNJ): os dados vêm por processo, com órgão julgador (comarca). Teste de 18/11: **inconclusivo** (0 resultados na 1ª consulta, depois só sobrecarga, HTTP 429/504) |
 | Cobertura municipal | Ligue 180: sem dado aberto. Medidas protetivas: **parcial**, por comarca (uma comarca atende vários municípios) |

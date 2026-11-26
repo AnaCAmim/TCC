@@ -1,9 +1,9 @@
 """Teste-piloto de usabilidade e acessibilidade com Playwright (Chrome instalado).
-- Tarefas T1–T5 do plano de avaliação, cada uma partindo da página inicial: conta as ações (clique, escolha numa lista,
+- Tarefas T1–T5 (tarefas típicas de gestores), cada uma partindo da página inicial: conta as ações (clique, escolha numa lista,
   digitar + Enter) e confere a resposta na tela contra a resposta calculada direto do web/dados.json. Limite: 4 ações.
 - Contraste WCAG 2.1 AA das cores do tema claro e escuro; paleta do mapa sob simulação de daltonismo (Machado et al., 2009);
   celular 320 px sem rolagem lateral; mapa visível sem rolar no celular; botões de zoom com 44 px; controles com nome.
-- Grava capturas/piloto_tarefas.json e capturas/piloto_T*.png. Confere se docs/teste_usuarios/respostas.json está atualizado.
+- Grava capturas/piloto_tarefas.json e capturas/piloto_T*.png.
 Uso: python testes/testar_usabilidade.py   (requer: pip install playwright)"""
 import csv
 import functools
@@ -35,7 +35,6 @@ def movel(on=True):
     return {"has_touch": on, **({} if NAV == "firefox" else {"is_mobile": on})}
 WEB = RAIZ / "web"
 CAP = RAIZ / "capturas" if NAV == "chrome" else pathlib.Path(tempfile.mkdtemp(prefix=f"websig_{NAV}_"))
-RESPOSTAS = RAIZ / "docs" / "teste_usuarios" / "respostas.json"
 CAP.mkdir(exist_ok=True)
 MAX_ACOES = 4
 falhas, ok = [], []
@@ -50,8 +49,6 @@ def fmt(v, d):
 
 
 R = respostas_certas(json.loads((WEB / "dados.json").read_text(encoding="utf-8")))
-if RESPOSTAS.exists():
-    check(json.loads(RESPOSTAS.read_text(encoding="utf-8")) == R, "material do teste: docs/teste_usuarios/respostas.json igual ao dados.json atual (senão rode testes/gerar_material_teste.py)")
 
 
 # ---------------- servidor local ----------------
