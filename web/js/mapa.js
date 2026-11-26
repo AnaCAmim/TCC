@@ -3,13 +3,15 @@
 "use strict";
 window.WS = window.WS || {};
 WS.mapa = (function () {
-  const { $, nf, css, esc, semAc } = WS.util;
-  const S = { ind: 'taxa', tipo: 'total', per: 'all', reg: '', sel: null, rk: 'maiores', tabela: false };
+  const { $, nf, np, css, esc, semAc } = WS.util;
+  // tokens de cor do mapa (legenda, contornos, símbolos, PNG): lidos do elemento #map, que fica claro também no tema escuro
+  const cssM = v => getComputedStyle($('map')).getPropertyValue(v).trim() || css(v);
+  const S = { ind: 'taxa', tipo: 'total', per: 'all', reg: '', sel: null, rk: 'maiores', tabela: false, fx: 'casos' };
   const MIN_CASOS = 10;   // abaixo disso a taxa e o observado ÷ esperado ficam instáveis
   const HINT = {
-    taxa: 'Casos por ano para cada 100 mil mulheres. Permite comparar municípios de tamanhos diferentes.',
-    casos: 'Quantidade de notificações. Mostra onde está o volume de atendimento.',
-    oe: 'Compara o município com o estado: 1 é igual, abaixo de 1 notifica menos, acima notifica mais.'
+    taxa: 'Casos por ano a cada 100 mil mulheres. Serve para comparar municípios de tamanhos diferentes.',
+    casos: 'Número de notificações. Mostra o volume de atendimento.',
+    oe: 'Mostra se o município notifica mais ou menos que a média da Paraíba, considerando o número de mulheres.'
   };
   let C, map, camada, CL, porCamada = {}, ORDEM = [], naFrente = null, tip, ponteiro = 'mouse', dicaCod = null, dicaModo = null;
   const noRecorte = p => !S.reg || p.reg === S.reg;          // município dentro da região de saúde escolhida
@@ -17,8 +19,8 @@ WS.mapa = (function () {
 
   const valor = p => C.valor(p, S.ind, S.tipo, S.per);
   const casosSel = p => C.casos(p, S.tipo, S.per);
-  const fmtValor = v => (S.ind === 'casos' ? nf(v) + (v === 1 ? ' caso' : ' casos') : S.ind === 'taxa' ? nf(v, 1) + ' por 100 mil/ano' : nf(v, 2) + '× o esperado');
-  const filtrosTexto = () => C.NOME_IND[S.ind].replace(' por ano', '') + ' · ' + C.TIPOS[S.tipo] + ' · ' + C.nomePer(S.per) + (S.reg ? ' · ' + nomeReg(S.reg) : '');
+  const fmtValor = v => (S.ind === 'casos' ? nf(v) + (v === 1 ? ' caso' : ' casos') : S.ind === 'taxa' ? nf(v, 1) + ' por 100 mil/ano' : C.oeCurto(v));
+  const filtrosTexto = () => C.NOME_IND[S.ind] + ' · ' + C.TIPOS[S.tipo] + ' · ' + C.nomePer(S.per) + (S.reg ? ' · ' + nomeReg(S.reg) : '');
   // tabindex="0" explícito: o Safari, por padrão, não passa por links com o Tab
   const linkCalc = ind => '<a href="#como-calcular" data-ind="' + ind + '" class="noprint" tabindex="0">como calcular</a>';
 
@@ -30,25 +32,192 @@ WS.mapa = (function () {
     else { r.push('Menos de ' + nf(c[0], d)); for (let i = 1; i < c.length; i++) r.push(nf(c[i - 1], d) + ' a menos de ' + nf(c[i], d)); }
     r.push(nf(c[c.length - 1], d) + ' ou mais'); return r;
   }
-  function classes() {
-    if (S.ind === 'oe') return { cort: [0.5, 0.8, 1.25, 2], cores: ['--d1', '--d2', '--d3', '--d4', '--d5'],
-      rot: ['Menos da metade do esperado (abaixo de 0,5)', 'Abaixo do esperado (0,5 a 0,8)', 'Próximo da média do estado (0,8 a 1,25)', 'Acima do esperado (1,25 a 2)', 'Mais do dobro do esperado (2 ou mais)'] };
-    if (S.ind === 'casos') { const c = S.per === 'all' ? [1, 10, 50, 200] : [1, 3, 10, 40]; return { cort: c, cores: ['--q1', '--q2', '--q3', '--q4', '--q5'], rot: faixasRot(c, 0, true) }; }
-    let c = quantis(C.F.map(f => valor(f.properties)), 5).map(x => Math.round(x));
-    c = c.filter((x, i) => i === 0 || x > c[i - 1]);
-    return { cort: c, cores: ['--q1', '--q2', '--q3', '--q4', '--q5'].slice(5 - (c.length + 1)), rot: faixasRot(c, 0) };
+  // Taxa: classes FIXAS por tipo de violência: quintis das taxas anuais positivas dos municípios de 2019 a 2024, arredondados
+  // (múltiplos de 10; de 5 abaixo de 30). Valem para qualquer ano ou período, então as cores são comparáveis entre períodos.
+  const limitesTaxa = {};
+  function cortesTaxa(tipo) {
+    if (limitesTaxa[tipo]) return limitesTaxa[tipo];
+    const v = []; C.F.forEach(f => { const p = f.properties; p.casos[tipo].forEach(c => { if (c > 0) v.push(c / p.pop * 1e5); }); });
+    const arred = x => (x >= 30 ? Math.round(x / 10) * 10 : Math.max(5, Math.round(x / 5) * 5));
+    let c = quantis(v, 5).map(arred); c = c.filter((x, i) => i === 0 || x > c[i - 1]);
+    return (limitesTaxa[tipo] = c);
   }
-  const corDe = v => { let i = 0; while (i < CL.cort.length && v >= CL.cort[i]) i++; return css(CL.cores[i]); };
+  const nfl = x => x.toLocaleString('pt-BR', { maximumFractionDigits: 2 });   // 0,5 · 1,25 · 40
+  const rotCurto = c => ['menos de ' + nfl(c[0])].concat(c.slice(1).map((x, i) => nfl(c[i]) + ' a ' + nfl(x)), [nfl(c[c.length - 1]) + ' ou mais']);
+  function classes() {
+    if (S.ind === 'oe') { const c = [0.5, 0.8, 1.25, 2]; return { cort: c, cores: ['--d1', '--d2', '--d3', '--d4', '--d5'], rot: C.FAIXAS_OE.map(f => f.rot), lim: C.FAIXAS_OE.map(f => f.lim), fixas: true }; }
+    if (S.ind === 'casos') { const c = S.per === 'all' ? [1, 10, 50, 200] : [1, 3, 10, 40]; return { cort: c, cores: ['--q1', '--q2', '--q3', '--q4', '--q5'], rot: faixasRot(c, 0, true) }; }
+    const c = cortesTaxa(S.tipo);
+    return { cort: c, cores: ['--q1', '--q2', '--q3', '--q4', '--q5'].slice(5 - (c.length + 1)), rot: rotCurto(c) };
+  }
+  const classeDe = v => { let i = 0; while (i < CL.cort.length && v >= CL.cort[i]) i++; return i; };
+  const corDe = v => cssM(CL.cores[classeDe(v)]);
+
+  /* ---------- cartografia: centroides, símbolos proporcionais, hachura, contornos, rótulos ---------- */
+  const R_MAX = 26;   // raio (px) do maior círculo; área do círculo ∝ casos, logo raio ∝ raiz quadrada dos casos
+  const POLOS = ['João Pessoa', 'Campina Grande', 'Patos', 'Sousa', 'Cajazeiras', 'Guarabira', 'Monteiro'];   // em ordem de prioridade
+  const TITULO_LEG = { taxa: 'Taxa por 100 mil mulheres por ano', casos: 'Casos notificados', oe: 'Comparação com a média da Paraíba' };
+  let grupoSimb, rSimb, camRegioes, camEstado, rotulos = [], centro = {}, ESC = null, estadoB, zoomInicial = 7.5, verRegioes = true, chavePadroes = '';
+  let destacarPoucos = true, legAberta = innerWidth > 860, lerAberto = false, vistaAuto = true, enquadrando = false;   // hachura ligada; legenda aberta no computador, recolhida no celular
+  const raio = v => ESC.rmax * Math.sqrt(v / ESC.vmax);
+  function areaAnel(a) { let s = 0; for (let i = 0; i < a.length - 1; i++) s += a[i][0] * a[i + 1][1] - a[i + 1][0] * a[i][1]; return s / 2; }
+  function dentroAnel(pt, a) {
+    let d = false;
+    for (let i = 0, j = a.length - 1; i < a.length; j = i++) {
+      const [xi, yi] = a[i], [xj, yj] = a[j];
+      if ((yi > pt[1]) !== (yj > pt[1]) && pt[0] < (xj - xi) * (pt[1] - yi) / (yj - yi) + xi) d = !d;
+    }
+    return d;
+  }
+  // centroide do maior polígono do município; se cair fora (forma côncava), o ponto interno mais próximo dele
+  function centroide(geom) {
+    const polis = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates;
+    let anel = polis[0][0], amax = -1;
+    polis.forEach(pl => { const a = Math.abs(areaAnel(pl[0])); if (a > amax) { amax = a; anel = pl[0]; } });
+    let cx = 0, cy = 0, A = 0;
+    for (let i = 0; i < anel.length - 1; i++) { const [x0, y0] = anel[i], [x1, y1] = anel[i + 1], k = x0 * y1 - x1 * y0; A += k; cx += (x0 + x1) * k; cy += (y0 + y1) * k; }
+    let c = [cx / (3 * A), cy / (3 * A)];
+    if (!dentroAnel(c, anel)) {
+      const xs = anel.map(p => p[0]), ys = anel.map(p => p[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+      let melhor = null;
+      for (let i = 1; i < 20; i++) for (let j = 1; j < 20; j++) {
+        const q = [x0 + (x1 - x0) * i / 20, y0 + (y1 - y0) * j / 20];
+        if (dentroAnel(q, anel)) { const d = (q[0] - c[0]) ** 2 + (q[1] - c[1]) ** 2; if (!melhor || d < melhor[1]) melhor = [q, d]; }
+      }
+      if (melhor) c = melhor[0];
+    }
+    return L.latLng(c[1], c[0]);
+  }
+  // hachura: linhas diagonais escuras sobre cores claras e claras sobre cores escuras (contraste ≥ 3:1)
+  function luminancia(cor) {
+    const h = cor.replace('#', ''), v = [0, 2, 4].map(i => parseInt(h.substr(i, 2), 16) / 255).map(c => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2];
+  }
+  // hachura do valor instável: linha fina (0,8 px a cada 10 px), cinza-escura com a MENOR opacidade que ainda dá contraste ≥ 3:1
+  // com a cor; nas cores escuras, onde a linha escura não chega a 3:1, linha branca com a mesma regra
+  const contrasteCor = (a, b) => { const x = luminancia(a), y = luminancia(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const hex = v => '#' + v.map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
+  const rgbDe = cor => [0, 2, 4].map(i => parseInt(cor.replace('#', '').substr(i, 2), 16));
+  function linhaHachura(cor) {
+    const f = rgbDe(cor);
+    for (const base of [[38, 37, 34], [255, 255, 255]]) {
+      for (let a = 0.3; a <= 1.0001; a += 0.05) {
+        const mist = hex(base.map((b, i) => a * b + (1 - a) * f[i]));
+        if (contrasteCor(mist, cor) >= 3) return { cor: hex(base), op: Math.round(a * 100) / 100 };
+      }
+    }
+    return { cor: '#000000', op: 1 };
+  }
+  function padroes() {
+    const cores = CL.cores.map(v => cssM(v)), chave = cores.join();
+    if (chave === chavePadroes) return;
+    chavePadroes = chave;
+    const svg = map.getRenderer(camada.getLayers()[0])._container;
+    let defs = svg.querySelector('defs');
+    if (!defs) { defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs'); svg.insertBefore(defs, svg.firstChild); }
+    defs.innerHTML = cores.map((cor, i) => { const l = linhaHachura(cor); return '<pattern id="hach-' + i + '" patternUnits="userSpaceOnUse" width="10" height="10" patternTransform="rotate(45)">' +
+      '<rect width="10" height="10" fill="' + cor + '"/><line x1="1" y1="0" x2="1" y2="10" stroke="' + l.cor + '" stroke-opacity="' + l.op + '" stroke-width="0.8"/></pattern>'; }).join('');
+  }
+  function desenharSimbolos() {
+    grupoSimb.clearLayers(); ESC = null;
+    if (S.ind !== 'casos') return;
+    ESC = { vmax: Math.max(1, ...C.F.map(f => casosSel(f.properties))), rmax: R_MAX };   // escala do estado inteiro (comparável entre regiões)
+    C.F.map(f => f.properties).filter(p => casosSel(p) > 0).sort((a, b) => casosSel(b) - casosSel(a)).forEach(p => {   // maiores primeiro = atrás
+      const c = L.circleMarker(centro[p.cod], { renderer: rSimb, radius: raio(casosSel(p)), fillColor: cssM('--simbolo'), fillOpacity: 0.6, color: '#ffffff', weight: 0.8 });
+      c.feature = { properties: p };
+      ligar(c, p.cod, porCamada[p.cod]);
+      c.addTo(grupoSimb);
+      c.getElement().setAttribute('data-cod', p.cod);
+    });
+  }
+  const estiloRegiao = f => (f.properties.cod === S.reg ? { fill: false, color: cssM('--accent'), weight: 3.2, opacity: 1 }
+    : { fill: false, color: cssM('--limite-reg'), weight: 1.8, opacity: verRegioes ? 0.9 : 0 });
+  // rótulos das cidades-polo: em ordem de prioridade, sem sobrepor outro rótulo, a ficha, a legenda ou o título
+  function arrumarRotulos() {
+    const vistos = [], evitar = ['painel', 'leg', 'mapatitulo'].map(id => $(id)).filter(e => e && e.offsetParent && e.style.display !== 'none').map(e => e.getBoundingClientRect());
+    const caixa = $('map').getBoundingClientRect();   // o rótulo também não pode sair do mapa
+    const bate = r => r.left < caixa.left + 2 || r.right > caixa.right - 2 || r.top < caixa.top + 2 || r.bottom > caixa.bottom - 2 ||
+      [...vistos, ...evitar].some(o => !(r.right < o.left || r.left > o.right || r.bottom < o.top || r.top > o.bottom));
+    rotulos.forEach((m, i) => {
+      const el = m.getElement(); if (!el) return;
+      el.style.visibility = 'visible';
+      // tenta o texto à direita do ponto e, se bater em algo, à esquerda; senão, esconde
+      const lado = ['', 'esq'].find(c => { el.classList.toggle('esq', c === 'esq'); return !bate(el.firstChild.getBoundingClientRect()); });
+      if (lado === undefined || (i >= 5 && map.getZoom() < zoomInicial)) el.style.visibility = 'hidden'; else vistos.push(el.firstChild.getBoundingClientRect());
+    });
+  }
+  // anéis externos do contorno a enquadrar (estado ou região de saúde), em [lng, lat]
+  function aneisDe(b) {
+    if (!C.CONTORNOS) return null;
+    const g = b === estadoB || !S.reg ? C.CONTORNOS.estado : (C.CONTORNOS.regioes.find(x => x.cod === S.reg) || {}).geom;
+    return g ? (g.type === 'Polygon' ? [g.coordinates] : g.coordinates).map(pl => pl[0]) : null;
+  }
+  // o contorno, na vista que a margem "o" daria, encosta em algum dos retângulos (coordenadas do mapa, em px)?
+  function contornoBate(b, o, aneis, rets) {
+    const v = map._getBoundsCenterZoom(b, o), c0 = map.project(v.center, v.zoom), meio = map.getSize().divideBy(2);
+    const pts = aneis.map(a => a.map(([x, y]) => map.project([y, x], v.zoom).subtract(c0).add(meio)));
+    const dentroRet = (q, t) => q.x > t[0] && q.x < t[2] && q.y > t[1] && q.y < t[3];
+    const dentroPol = (x, y) => pts.some(a => { let d = false; for (let i = 0, j = a.length - 1; i < a.length; j = i++) { if ((a[i].y > y) !== (a[j].y > y) && x < (a[j].x - a[i].x) * (y - a[i].y) / (a[j].y - a[i].y) + a[i].x) d = !d; } return d; });
+    return rets.some(t => pts.some(a => a.some(q => dentroRet(q, t))) || [[t[0], t[1]], [t[2], t[1]], [t[0], t[3]], [t[2], t[3]], [(t[0] + t[2]) / 2, (t[1] + t[3]) / 2]].some(([x, y]) => dentroPol(x, y)));
+  }
+  // área livre do mapa (computador e celular): abaixo do título, fora da ficha, sem cobrir os botões de zoom nem a legenda aberta.
+  // Margens seguras: estado ao lado da legenda ou acima dela (vale a que der o mapa maior). Depois, procura margens menores em que
+  // o contorno real (não a caixa) continue sem encostar na legenda nem nos botões: a legenda pode ocupar um canto vazio da caixa.
+  function areaLivre(b) {
+    const big = innerWidth > 860, aberta = S.sel && !S.tabela && $('painel').style.display !== 'none', m = $('map').getBoundingClientRect();
+    let br = [16, 16];
+    if (aberta) br = big ? [$('painel').offsetWidth + 28, 16] : [16, $('painel').offsetHeight + 16];
+    const t = $('mapatitulo').getBoundingClientRect(), topo = Math.max(56, Math.round(t.bottom - m.top + 10));
+    const ctl = document.querySelector('#map .leaflet-top.leaflet-left'), cr = ctl && ctl.getBoundingClientRect();
+    const esqCtl = cr && cr.width ? Math.round(cr.right - m.left + 12) : 64;
+    const lg = $('leg').getBoundingClientRect(), temLeg = lg.width > 0 && lg.height > 0;
+    const lado = { paddingTopLeft: [temLeg ? Math.max(esqCtl, Math.round(lg.right - m.left + 20)) : esqCtl, topo], paddingBottomRight: br };
+    const acima = { paddingTopLeft: [esqCtl, topo], paddingBottomRight: [br[0], temLeg ? Math.max(br[1], Math.round(m.bottom - lg.top + 12)) : br[1]] };
+    // margem que deixa menos de 120 px livres não serve (no celular, a legenda aberta ocupa quase todo o mapa: aí ela fica por cima)
+    const cabe = o => m.width - o.paddingTopLeft[0] - o.paddingBottomRight[0] >= 120 && m.height - o.paddingTopLeft[1] - o.paddingBottomRight[1] >= 120;
+    const semLeg = { paddingTopLeft: [16, topo], paddingBottomRight: br };
+    if (!b) return cabe(lado) ? lado : semLeg;
+    const z = o => map.getBoundsZoom(b, false, L.point(o.paddingTopLeft).add(L.point(o.paddingBottomRight)));
+    const validas = [acima, lado].filter(cabe);
+    if (!validas.length) return semLeg;
+    let melhor = validas.length === 2 && z(lado) > z(acima) ? lado : validas[0];
+    const aneis = aneisDe(b);
+    if (!aneis) return melhor;
+    const rel = r => [r.left - m.left - 8, r.top - m.top - 8, r.right - m.left + 8, r.bottom - m.top + 8];
+    const rets = (cr && cr.width ? [rel(cr)] : []).concat(temLeg ? [rel(lg)] : []);
+    const esq0 = 16, esq1 = lado.paddingTopLeft[0], bas0 = br[1], bas1 = acima.paddingBottomRight[1];
+    let zm = z(melhor);
+    for (let i = 0; i <= 6; i++) for (let j = 0; j <= 6; j++) {
+      const o = { paddingTopLeft: [Math.round(esq0 + (esq1 - esq0) * i / 6), topo], paddingBottomRight: [br[0], Math.round(bas0 + (bas1 - bas0) * j / 6)] }, zo = z(o);
+      if (zo > zm + 1e-9 && cabe(o) && !contornoBate(b, o, aneis, rets)) { melhor = o; zm = zo; }
+    }
+    return melhor;
+  }
+  const limitesRecorte = () => {
+    if (!S.reg) return estadoB;
+    const b = L.latLngBounds([]); C.F.filter(f => noRecorte(f.properties)).forEach(f => b.extend(porCamada[f.properties.cod].getBounds())); return b;
+  };
+
 
   /* ---------- desenho ---------- */
   function estilizar() {
-    CL = classes(); const bord = css('--surface');
+    CL = classes(); const bord = cssM('--limite-mun'), simb = S.ind === 'casos';
+    $('mapwrap').classList.toggle('modo-casos', simb);
+    if (!simb) padroes();
     camada.eachLayer(l => {
-      const p = l.feature.properties, s = S.sel === p.cod, dentro = noRecorte(p), el = l.getElement();
-      l.setStyle({ fillColor: corDe(valor(p)), fillOpacity: dentro ? 1 : 0.15, color: s ? css('--accent') : bord, weight: s ? 3.5 : 0.8 });
+      const p = l.feature.properties, s = S.sel === p.cod, dentro = noRecorte(p), el = l.getElement(), instavel = !simb && destacarPoucos && casosSel(p) < MIN_CASOS;
+      const fill = simb ? cssM('--base-mapa') : instavel ? 'url(#hach-' + classeDe(valor(p)) + ')' : corDe(valor(p));
+      l.setStyle({ fillColor: fill, fillOpacity: dentro ? 1 : (simb ? 0.45 : 0.15), color: s ? cssM('--accent') : bord, weight: s ? 3.5 : 0.6 });
       el.tabIndex = dentro ? 0 : -1;
-      el.setAttribute('aria-label', p.nome + ': ' + fmtValor(valor(p)));
+      el.setAttribute('data-instavel', instavel ? '1' : '0');
+      el.setAttribute('aria-label', p.nome + ': ' + fmtValor(valor(p)) + (instavel ? ' (menos de 10 casos: valor instável)' : ''));
     });
+    if (grupoSimb) grupoSimb.eachLayer(c => {
+      const p = c.feature.properties, s = S.sel === p.cod, dentro = noRecorte(p);
+      c.setStyle({ fillColor: cssM('--simbolo'), fillOpacity: dentro ? 0.6 : 0.12, opacity: dentro ? 1 : 0.25, color: s ? cssM('--accent') : '#ffffff', weight: s ? 2.5 : 0.8 });
+    });
+    if (camRegioes) camRegioes.setStyle(estiloRegiao);
+    if (camEstado) camEstado.setStyle({ fill: false, color: cssM('--ink'), weight: 2.4, opacity: 0.9 });
     frente(S.sel);
   }
   // O selecionado vai para a frente (borda inteira visível); ao trocar, o anterior volta ao lugar em ordem alfabética
@@ -61,7 +230,7 @@ WS.mapa = (function () {
     if (cod && naFrente !== cod) { porCamada[cod].bringToFront(); naFrente = cod; }
   }
   /* ---------- dica (nome + valor): mouse segue o cursor; toque e teclado ficam acima do município, sem cobri-lo ---------- */
-  function destacar(l, cor) { if (S.sel !== l.feature.properties.cod) l.setStyle({ weight: cor ? 3 : 2.5, color: css(cor || '--ink') }); }
+  function destacar(l, cor) { if (S.sel !== l.feature.properties.cod) l.setStyle({ weight: cor ? 3 : 2.5, color: cssM(cor || '--ink') }); }
   function dicaPerto(l, aviso, modo) {
     dicaModo = modo;
     const p = l.feature.properties, r = l.getElement().getBoundingClientRect(), m = $('map').getBoundingClientRect();
@@ -74,33 +243,69 @@ WS.mapa = (function () {
     tip.style.top = y + 'px';
   }
   function esconderDica() { tip.style.display = 'none'; dicaCod = null; dicaModo = null; }
-  function enquadrar() {
-    const ls = C.F.filter(f => noRecorte(f.properties)).map(f => porCamada[f.properties.cod]);
-    const b = L.latLngBounds([]); ls.forEach(l => b.extend(l.getBounds()));
-    const big = innerWidth > 860;
-    map.fitBounds(b, { paddingTopLeft: [20, 60], paddingBottomRight: [big ? (S.sel ? 380 : 300) : 20, big ? 20 : (S.sel ? 320 : 20)] });
+  // enquadra o recorte na área livre e só depois ajusta o limite de arraste (vista atual + meia Paraíba de margem),
+  // para o limite nunca puxar o mapa de volta para trás da ficha
+  function limitarArraste() { map.setMaxBounds(map.getBounds().extend(estadoB.pad(0.5))); }
+  function enquadrar(b) {
+    const alvo = b || limitesRecorte();
+    enquadrando = true; map.setMaxBounds(null); map.fitBounds(alvo, Object.assign(areaLivre(alvo), { animate: false })); limitarArraste(); enquadrando = false; vistaAuto = true;
+  }
+  // a legenda mudou de tamanho (indicador, recolher, "Como ler"): reenquadra, a não ser que a pessoa já tenha mexido no mapa
+  function reenquadrar() { if (vistaAuto) enquadrar(); arrumarRotulos(); }
+  function legendaCirculos() {
+    if (!ESC) return '';
+    const ref = [1, 10, 100, 1000, 10000].filter(v => v <= ESC.vmax).slice(-3), rmax = raio(ref[ref.length - 1]), base = 2 * rmax + 6;
+    let corpo = '', yAnt = -99;
+    ref.slice().reverse().forEach(v => {   // do maior para o menor; rótulos a pelo menos 14 px um do outro
+      const r = raio(v), topo = base - 2 * r, y = Math.max(topo + 4, yAnt + 14); yAnt = y;
+      corpo += '<circle cx="' + (rmax + 2) + '" cy="' + (base - r) + '" r="' + r + '" fill="' + cssM('--simbolo') + '" fill-opacity=".35" stroke="' + cssM('--ink-2') + '" stroke-width="1"/>' +
+        '<polyline points="' + (rmax + 2) + ',' + topo + ' ' + (2 * rmax + 10) + ',' + (y - 4) + '" fill="none" stroke="' + cssM('--ink-3') + '" stroke-dasharray="2 2"/>' +
+        '<text x="' + (2 * rmax + 14) + '" y="' + y + '">' + nf(v) + (v === 1 ? ' caso' : ' casos') + '</text>';
+    });
+    const H = Math.ceil(Math.max(base + 2, yAnt + 4)), W = Math.ceil(2 * rmax + 90);
+    return '<svg class="circ" width="' + W + '" height="' + H + '" role="img" aria-label="Círculos de referência: ' + ref.map(v => nf(v) + (v === 1 ? ' caso' : ' casos')).join(', ') + '">' + corpo + '</svg>';
   }
   function legenda() {
-    let h = '<b>' + C.NOME_IND[S.ind] + '</b><div style="color:var(--ink-3);margin:-4px 0 6px">' + C.TIPOS[S.tipo] + ' · ' + C.nomePer(S.per) + '</div>';
-    CL.rot.forEach((r, i) => { h += '<div class="row"><span class="sw" style="background:' + css(CL.cores[i]) + '"></span>' + r + '</div>'; });
-    if (S.ind === 'taxa') h += '<small>Média do estado: ' + nf(C.taxaEstado(S.tipo, S.per), 1) + ' por 100 mil/ano.' + (S.reg ? ' Média da ' + esc(nomeReg(S.reg)) + ': ' + nf(C.taxaRegiao(S.reg, S.tipo, S.per), 1) + '.' : '') + ' Cada cor reúne cerca de 1/5 dos municípios.</small>';
-    if (S.ind === 'oe') h += '<small>1 = o município notifica na mesma proporção que o estado.</small>';
-    if (S.ind === 'casos') h += '<small>Estado: ' + nf(C.casosEstado(S.tipo, S.per)) + ' casos.</small>';
-    if (S.ind !== 'casos') h += '<small>Com menos de 10 casos no período, o valor é instável.</small>';
-    $('leg').innerHTML = h;
+    let h = '<button type="button" class="leg-tog" aria-expanded="' + legAberta + '" aria-controls="legCorpo"><span class="sr">Legenda: </span><span class="leg-titulo">' + TITULO_LEG[S.ind] + '</span></button>' +
+      '<div class="leg-corpo" id="legCorpo">' + (S.ind === 'oe' ? '<div class="lsub">considerando o número de mulheres</div>' : '') + '<div class="lsub">' + C.TIPOS[S.tipo] + ' · ' + C.nomePer(S.per) + ' · ' + (S.reg ? esc(nomeReg(S.reg)) : 'Paraíba') + '</div>';
+    const ps = C.F.map(f => f.properties).filter(noRecorte);
+    let notas = '';
+    if (S.ind === 'casos') {
+      const soma = ps.reduce((s, p) => s + casosSel(p), 0), sem = ps.filter(p => !casosSel(p)).length;
+      h += legendaCirculos();
+      notas = '<small>O tamanho do círculo segue o número de casos. ' + (S.reg ? 'Região' : 'Paraíba') + ': ' + nf(soma) + ' casos. ' + nf(sem) + (sem === 1 ? ' município' : ' municípios') + ' sem nenhum caso.</small>';
+    } else {
+      const n = CL.cores.map(() => 0); ps.forEach(p => n[classeDe(valor(p))]++);
+      const nmax = Math.max(1, ...n), ref = S.ind === 'taxa' ? C.taxaEstado(S.tipo, S.per) : 1, iRef = classeDe(ref);
+      CL.rot.forEach((r, i) => {
+        h += '<div class="row" data-n="' + n[i] + '" data-rot="' + esc(r) + '"' + (CL.lim ? ' data-lim="' + CL.lim[i] + '"' : '') + '><span class="sw" style="background:' + cssM(CL.cores[i]) + '"></span><span class="rot">' + r +
+          (CL.lim ? '<small class="lim">' + CL.lim[i] + '</small>' : '') + (S.ind === 'taxa' && i === iRef ? '<small class="media">média da Paraíba</small>' : '') + '</span>' +
+          (CL.fixas ? '<span class="hist" style="width:' + Math.round(26 * n[i] / nmax) + 'px"></span>' : '') + '<span class="cont">' + nf(n[i]) + '</span></div>';
+      });
+      const nInst = ps.filter(p => casosSel(p) < MIN_CASOS).length;
+      if (destacarPoucos) h += '<div class="row inst"><span class="sw hach"></span><span class="rot">Menos de 10 casos: valor instável</span><span class="cont">' + nf(nInst) + '</span></div>';
+      notas = '<small>' + (S.ind === 'taxa' ? 'Média da Paraíba: ' + nf(ref, 1) + ' casos por 100 mil mulheres por ano.' + (S.reg ? ' Média da ' + esc(nomeReg(S.reg)) + ': ' + nf(C.taxaRegiao(S.reg, S.tipo, S.per), 1) + '.' : '')
+        : 'Esperado: os casos que o município teria se notificasse como a média da Paraíba.') + ' Número à direita: municípios em cada faixa' + (S.reg ? ', na região' : '') + '.</small>';
+      notas += '<small>' + (S.ind === 'taxa' ? 'As faixas de cor são fixas e valem para qualquer ano ou período. Saíram das taxas anuais dos municípios de 2019 a 2024, divididas em 5 grupos de tamanho parecido e arredondadas.'
+        : 'Os números menores são os limites de cada faixa (1 = igual à média). Nome técnico: observado ÷ esperado.') + '</small>';
+    }
+    h += '<details class="leg-ler"' + (lerAberto ? ' open' : '') + '><summary>Como ler esta legenda</summary>' + notas + '</details>';
+    $('leg').innerHTML = h + '</div>';
+    $('leg').classList.toggle('aberta', legAberta);
   }
   function ranking() {
     const todos = C.F.map(f => f.properties).filter(noRecorte);
     let lst, nota;
     if (S.rk === 'maiores') {
       lst = todos.sort((a, b) => valor(b) - valor(a)).slice(0, 10);
-      nota = '* menos de 10 casos no período escolhido: valor instável. Escolha um município aqui, no mapa, na busca ou na tabela para ver a ficha.';
+      nota = '* Menos de 10 casos no período: valor instável.';
     } else {
       lst = todos.filter(p => casosSel(p) >= MIN_CASOS).sort((a, b) => valor(a) - valor(b)).slice(0, 10);
-      nota = 'Só municípios com pelo menos 10 casos no tipo e período escolhidos: com menos, um único caso muda muito o valor e o município pareceria "o menor" por acaso.';
+      nota = 'Só municípios com pelo menos 10 casos neste tipo e período.';
     }
-    $('rk').innerHTML = lst.map(p => '<li><a href="#mapa-' + p.cod + '" tabindex="0">' + esc(p.nome) + '</a> — ' + fmtValor(valor(p)) + (casosSel(p) < MIN_CASOS ? ' *' : '') + '</li>').join('') || '<li>Nenhum município com 10 casos ou mais neste filtro.</li>';
-    $('rknota').textContent = (S.reg ? 'Só municípios da ' + nomeReg(S.reg) + '. ' : '') + nota;
+    // na comparação com a média, o índice vai em letra menor ao lado das palavras (desempata "cerca de")
+    $('rk').innerHTML = lst.map(p => '<li><a href="#mapa-' + p.cod + '" tabindex="0">' + esc(p.nome) + '</a>: ' + fmtValor(valor(p)) + (S.ind === 'oe' && casosSel(p) ? ' <small>(' + nf(valor(p), 2) + ')</small>' : '') + (casosSel(p) < MIN_CASOS ? ' *' : '') + '</li>').join('') || '<li>Nenhum município com 10 casos ou mais neste filtro.</li>';
+    $('rknota').textContent = (S.ind === 'oe' ? 'Comparação com a média da Paraíba, considerando o número de mulheres. ' : '') + (S.reg ? 'Só municípios da ' + nomeReg(S.reg) + '. ' : '') + nota;
     document.querySelectorAll('.rktabs button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.r === S.rk)));
     $('rk').setAttribute('aria-label', S.rk === 'maiores' ? '10 maiores valores' : '10 menores valores, só municípios com pelo menos 10 casos');
   }
@@ -109,16 +314,17 @@ WS.mapa = (function () {
     const linhas = C.F.map(f => f.properties).filter(noRecorte).sort((a, b) => valor(b) - valor(a));
     const at = k => (S.ind === k ? ' class="ativo"' : '');
     $('maptab').innerHTML = '<table><caption class="sr">' + esc(filtrosTexto()) + '</caption><thead><tr><th>Município</th><th>Mulheres</th><th' + at('casos') + '>Casos</th><th' + at('taxa') +
-      '>Taxa / 100 mil / ano</th><th' + at('oe') + '>Observado ÷ esperado</th></tr></thead><tbody>' +
+      '>Taxa por 100 mil mulheres/ano</th><th' + at('oe') + '>Comparação com a média (1 = igual)</th></tr></thead><tbody>' +
       linhas.map(p => '<tr data-c="' + p.cod + '" tabindex="0"><td>' + esc(p.nome) + (casosSel(p) < MIN_CASOS ? ' *' : '') + '</td><td>' + nf(p.pop) + '</td><td' + at('casos') + '>' + nf(casosSel(p)) + '</td><td' + at('taxa') + '>' +
         nf(C.taxa(p, S.tipo, S.per), 1) + '</td><td' + at('oe') + '>' + nf(C.oe(p, S.tipo, S.per), 2) + '</td></tr>').join('') +
-      '</tbody></table><p class="hint" style="margin-top:8px">' + (S.reg ? nf(linhas.length) + ' municípios da ' + esc(nomeReg(S.reg)) + '. ' : '') + 'Mesmos valores e filtros do mapa, ordenados pelo indicador escolhido. * menos de 10 casos no período: valor instável.</p>';
+      '</tbody></table><p class="hint" style="margin-top:8px">' + (S.reg ? nf(linhas.length) + ' municípios da ' + esc(nomeReg(S.reg)) + '. ' : '') + 'Mesmos valores e filtros do mapa, em ordem do indicador escolhido. * Menos de 10 casos no período: valor instável.</p>';
   }
   function atualizar() {
     $('indhint').textContent = HINT[S.ind];
     $('mapatitulo').textContent = filtrosTexto();
-    estilizar(); legenda(); ranking(); tabelaMapa();
+    desenharSimbolos(); estilizar(); legenda(); ranking(); tabelaMapa();
     if (S.sel) ficha();
+    if (map && estadoB && rotulos.length) reenquadrar();
   }
 
   /* ---------- ficha do município ---------- */
@@ -127,10 +333,10 @@ WS.mapa = (function () {
     const escala = ref ? Math.max(...pares.map(x => (tot ? x[1] / tot : 0)), ...ref) : 0;
     return '<div class="barras">' + pares.map(([r, v], i) => {
       const larg = ref ? (tot ? 100 * (v / tot) / escala : 0) : 100 * v / mx;
-      const mark = ref ? '<span class="ref" style="left:' + (100 * ref[i] / escala) + '%" title="Estado: ' + nf(100 * ref[i], 0) + '%"></span>' : '';
+      const mark = ref ? '<span class="ref" style="left:' + (100 * ref[i] / escala) + '%" title="Paraíba: ' + nf(100 * ref[i], 0) + '%"></span>' : '';
       return '<span class="r">' + r + '</span><span class="tr"><span class="b" style="width:' + larg + '%"></span>' + mark + '</span><span class="n">' + nf(v) +
         (ref && tot ? ' <small>(' + nf(100 * v / tot, 0) + '%)</small>' : '') + '</span>';
-    }).join('') + '</div>' + (ref ? '<div class="leg-ref">Barra: % do município · traço preto: % do estado</div>' : '');
+    }).join('') + '</div>' + (ref ? '<div class="leg-ref">Barra: % do município. Traço: % da Paraíba.</div>' : '');
   }
   // Frase com a faixa etária mais atingida (empates aparecem juntos; a faixa "Ignorada" não entra)
   function faixaTopo(p) {
@@ -139,6 +345,44 @@ WS.mapa = (function () {
     const nomes = C.FX.slice(0, 10).map((f, i) => [f, conhecidas[i]]).filter(x => x[1] === mx).map(x => x[0] === '<1 Ano' ? 'menos de 1 ano' : C.rotFx(x[0]) + ' anos');
     return '<p class="fxtop">Faixa mais atingida: <b>' + nomes.join(' e ') + '</b> (' + nf(mx) + (nomes.length > 1 ? ' casos cada, ' : ' casos, ') + nf(100 * mx / tot, 0) + '%' + (nomes.length > 1 ? ' cada' : '') + ').</p>';
   }
+  // Taxa por faixa: barra = município, traço preto = estado na mesma faixa; * = menos de 10 casos na faixa
+  function barrasTaxa(p) {
+    const tx = C.FX.map((_, i) => C.taxaFaixa(p, i)), te = C.FX.map((_, i) => C.taxaFaixaEstado(i));
+    const escala = Math.max(1, ...tx.filter(v => v != null), ...te.filter(v => v != null));
+    return '<div class="barras">' + C.FX.map((f, i) => {
+      if (tx[i] == null) return '<span class="r">' + C.rotFx(f) + '</span><span class="tr semtaxa"></span><span class="n"><small>sem taxa (' + nf(p.faixa[i]) + (p.faixa[i] === 1 ? ' caso' : ' casos') + ')</small></span>';
+      return '<span class="r">' + C.rotFx(f) + '</span><span class="tr"><span class="b" style="width:' + (100 * tx[i] / escala) + '%"></span>' +
+        '<span class="ref" style="left:' + (100 * te[i] / escala) + '%" title="Paraíba: ' + nf(te[i], 1) + '"></span></span><span class="n">' + nf(tx[i], 1) + (p.faixa[i] < MIN_CASOS ? ' *' : '') + '</span>';
+    }).join('') + '</div><div class="leg-ref">Barra: taxa do município. Traço: taxa da Paraíba na mesma faixa. Casos por ano a cada 100 mil mulheres da faixa. ' +
+      (p.faixa.slice(0, C.N_FX_TAXA).some(v => v < MIN_CASOS) ? '* Menos de 10 casos na faixa: valor instável. ' : '') + 'A faixa "Ignorada" não tem taxa.</div>';
+  }
+  const fxCorpo = p => (S.fx === 'taxa' ? barrasTaxa(p)
+    : barras(C.FX.map((f, i) => [C.rotFx(f), p.faixa[i]]), p.faixa.some(v => v) ? C.faixaEstado.map(v => v / C.casosEstado('total', 'all')) : null));
+  const alternaFx = () => '<div class="alterna noprint" role="group" aria-label="Mostrar a faixa etária como">' +
+    [['casos', 'Casos'], ['taxa', 'Taxa por 100 mil/ano']].map(([k, t]) => '<button type="button" data-fx="' + k + '" aria-pressed="' + (S.fx === k) + '">' + t + '</button>').join('') + '</div>';
+  // Serviços declarados pela prefeitura na MUNIC 2023: ícone + texto (nunca só cor); "-" da MUNIC = "Sem dado"
+  const REDE = [['organismo_politicas_mulheres', 'Organismo de políticas para mulheres'], ['centro_referencia', 'Centro de referência ou atendimento especializado à mulher (CEAM/NIAM)'],
+    ['casa_abrigo', 'Casa-abrigo ou acolhimento para mulheres em situação de violência'], ['delegacia_mulher', 'Delegacia especializada no atendimento à mulher']];
+  const LEITURA_REDE = { 'Sim': ['sim', '✓', 'Sim'], 'Não': ['nao', '✕', 'Não'] };
+  function htmlRede(p) {
+    return '<div class="rede"><ul>' + REDE.map(([k, nome]) => {
+      const v = p.rede[k], [cls, ic, txt] = LEITURA_REDE[v] || ['sd', '?', 'Sem dado'];
+      return '<li class="' + cls + '" data-k="' + k + '" data-v="' + esc(v) + '"><span class="ic" aria-hidden="true">' + ic + '</span><span><b>' + txt + '</b> · ' + nome + '</span></li>';
+    }).join('') + '</ul><p class="nota">Informação declarada pela prefeitura em 2023. Serviços criados depois não aparecem.</p></div>';
+  }
+  // Onde as mulheres deste município foram atendidas (local da notificação): só contexto
+  const NOTA_LOCAL = 'Atendimento em outra região pode indicar falta de serviço local ou referência regional. O dado não diz o motivo.';
+  const CORES_LOCAL = ['--accent', '--barra', '--barra-claro'];
+  function htmlLocal(p) {
+    const tot = p.local[0] + p.local[1] + p.local[2];
+    const rot = [C.LOCAIS[0] + (C.REG[p.reg] ? ' (' + esc(nomeReg(p.reg)) + ')' : ''), C.LOCAIS[1], C.LOCAIS[2]];
+    return '<div class="local"><p class="nota" style="margin:0 0 6px">Todos os tipos. Local da notificação em relação à região de saúde de residência.</p>' +
+      WS.util.barra100(rot.map((r, k) => ({ rot: r, n: p.local[k], cor: css(CORES_LOCAL[k]), k: k + 1 }))) +
+      (tot && tot < MIN_CASOS ? '<div class="flag">Poucos casos (' + nf(tot) + '). As porcentagens mudam muito com um caso.</div>' : '') +
+      '<p class="nota">' + NOTA_LOCAL + '</p></div>';
+  }
+  // seções recolhíveis (no celular, só os 5 indicadores começam abertos)
+  const secao = (id, titulo, corpo) => '<details class="sec" data-sec="' + id + '"' + (id === 'ind' || innerWidth > 860 ? ' open' : '') + '><summary><h3>' + titulo + '</h3></summary>' + corpo + '</details>';
   function htmlFicha(p) {
     const t = S.tipo, per = S.per, c = C.casos(p, t, per), ce = C.casosEstado(t, per), tx = C.taxa(p, t, per), te = C.taxaEstado(t, per);
     const e = C.esperado(p, t, per), o = c / e, totEst = C.casosEstado('total', per);
@@ -148,29 +392,41 @@ WS.mapa = (function () {
     let h = '<button class="x noprint" type="button" aria-label="Fechar ficha">×</button><h2>' + esc(p.nome) + '</h2>' +
       '<div class="sub">' + nf(p.pop) + ' mulheres (Censo 2022) · ' + C.TIPOS[t] + ' · ' + C.nomePer(per) +
       (C.REG[p.reg] ? '<br>' + esc(nomeReg(p.reg)) + ' · ' + esc(C.REG[p.reg].macro) : '') + '</div>';
-    if (c < MIN_CASOS) h += '<div class="flag">Poucos casos (' + nf(c) + ' no tipo e período escolhidos). Com números tão pequenos, um caso a mais ou a menos muda muito a taxa e o observado ÷ esperado.</div>';
-    h += '<div class="ind5">' +
-      '<div class="it"><div class="cab"><span>Casos notificados</span>' + linkCalc('casos') + '</div><div class="v">' + nf(c) + '</div><div class="c">Estado: ' + nf(ce) + ' (' + nf(100 * c / ce, 1) + '% do estado; ' + nf(100 * p.pop / C.POP, 1) + '% das mulheres)</div></div>' +
-      '<div class="it"><div class="cab"><span>Taxa por 100 mil mulheres por ano</span>' + linkCalc('taxa') + '</div><div class="v">' + nf(tx, 1) + '</div><div class="c">Média do estado: ' + nf(te, 1) +
-        (C.REG[p.reg] ? '<br>Média da região de saúde (' + esc(nomeReg(p.reg)) + '): ' + nf(C.taxaRegiao(p.reg, t, per), 1) : '') + '</div></div>' +
-      '<div class="it"><div class="cab"><span>Observado ÷ esperado</span>' + linkCalc('oe') + '</div><div class="v">' + nf(o, 2) + '</div><div class="c">Esperado se seguisse o estado: ' + nf(e, 1) + ' casos · ' + C.leituraOE(o) + ' (estado = 1)</div></div>' +
+    // O que olhar primeiro: frase-resumo calculada em calculo.js (mesmas faixas da legenda: 0,5 · 0,8 · 1,25 · 2)
+    const rs = C.resumo(p, t, per);
+    h += '<p class="resumo" data-nivel="' + rs.nivel + '"><b>' + esc(rs.txt) + '</b> ' + esc(rs.detalhe) + '</p>';
+    if (c < MIN_CASOS) h += '<div class="flag">Poucos casos (' + nf(c) + ' neste tipo e período). Um caso a mais ou a menos muda muito a taxa e a comparação.</div>';
+    h += secao('ind', 'Os 5 indicadores', '<div class="ind5">' +
+      '<div class="it"><div class="cab"><span>Casos notificados</span>' + linkCalc('casos') + '</div><div class="v">' + nf(c) + '</div><div class="c">Paraíba: ' + nf(ce) + ' casos.<br>Tem ' + np(100 * p.pop / C.POP) + ' das mulheres da Paraíba e ' + np(ce ? 100 * c / ce : 0) + ' dos casos notificados.</div></div>' +
+      '<div class="it"><div class="cab"><span>Taxa por 100 mil mulheres por ano</span>' + linkCalc('taxa') + '</div><div class="v">' + nf(tx, 1) + '</div><div class="c">casos por 100 mil mulheres por ano, contra ' + nf(te, 1) + ' na média da Paraíba.' +
+        (C.REG[p.reg] ? '<br>Média da região de saúde (' + esc(nomeReg(p.reg)) + '): ' + nf(C.taxaRegiao(p.reg, t, per), 1) + '.' : '') + '</div></div>' +
+      '<div class="it it-oe"><div class="cab"><span>Comparação com a média da Paraíba</span>' + linkCalc('oe') + '</div><div class="v">' + (c ? C.oeCurto(o) : 'nenhum caso') + '</div><div class="c">' +
+        (c ? C.faixaOE(o).rot.replace(/^./, x => x.toUpperCase()) + ', considerando o número de mulheres.<br>' : '') + 'Esperado se seguisse a média da Paraíba: ' + C.casosAprox(e) + '. Registrou ' + nf(c) + '.</div>' +
+        '<div class="tec">Índice: ' + nf(o, 2) + ' (1 = igual à média). Nome técnico: observado ÷ esperado.</div></div>' +
       '<div class="it"><div class="cab"><span>Tipos de violência (' + C.nomePer(per) + ')</span>' + linkCalc('tipos') + '</div>' + barras(tiposP, totP ? refTipos : null) +
       '<div class="c">Total de notificações: ' + nf(totP) + '. Uma notificação pode ter mais de um tipo.</div></div>' +
-      '<div class="it"><div class="cab"><span>Faixa etária (2019 a 2024, todos os tipos)</span>' + linkCalc('faixa') + '</div>' + faixaTopo(p) +
-      barras(C.FX.map((f, i) => [C.rotFx(f), p.faixa[i]]), p.faixa.some(v => v) ? C.faixaEstado.map(v => v / C.casosEstado('total', 'all')) : null) + '</div>' +
-      '</div>';
-    h += '<h3>Casos por ano (' + C.TIPOS[t] + ')</h3>' + barras(C.ANOS.map((a, i) => [String(a), p.casos[t][i]]));
+      '<div class="it"><div class="cab"><span>Faixa etária (2019 a 2024, todos os tipos)</span>' + linkCalc('faixa') + '</div>' + faixaTopo(p) + '<div class="c">Detalhe por faixa abaixo, em casos ou em taxa.</div></div>' +
+      '</div>');
+    h += secao('faixa', 'Faixa etária em detalhe (2019 a 2024)', alternaFx() + '<div class="fxcorpo">' + fxCorpo(p) + '</div>');
+    h += secao('ano', 'Casos por ano (' + C.TIPOS[t] + ')', barras(C.ANOS.map((a, i) => [String(a), p.casos[t][i]])));
+    h += secao('local', 'Onde as mulheres deste município foram atendidas (2019 a 2024)', htmlLocal(p));
+    h += secao('rede', 'Serviços declarados pela prefeitura (pesquisa MUNIC 2023, do IBGE)', htmlRede(p));
     h += '<div class="btnrow noprint"><button class="btn peq pri" type="button" data-acao="imprimir">Imprimir ficha</button>' +
-      '<button class="btn peq" type="button" data-acao="link">Copiar link</button><button class="btn peq" type="button" data-acao="comparar">Comparar com outros</button></div>';
+      '<button class="btn peq" type="button" data-acao="link">Copiar link da ficha</button><button class="btn peq" type="button" data-acao="comparar">Comparar municípios</button></div>';
     return h;
   }
   function ficha() {
     const p = C.porCod[S.sel], el = $('painel');
     el.innerHTML = htmlFicha(p); el.style.display = 'block';
+    $('mapwrap').classList.add('com-ficha');   // no celular, esconde legenda, escala e fonte enquanto a ficha está aberta
     el.querySelector('.x').addEventListener('click', () => { location.hash = '#mapa'; });
     el.querySelector('[data-acao=imprimir]').addEventListener('click', imprimirFicha);
     el.querySelector('[data-acao=link]').addEventListener('click', () => WS.util.copiar(location.href.split('#')[0] + '#mapa-' + p.cod, 'Link da ficha copiado'));
     el.querySelector('[data-acao=comparar]').addEventListener('click', () => abrirComparar([p.cod]));
+    el.querySelectorAll('[data-fx]').forEach(b => b.addEventListener('click', () => {
+      S.fx = b.dataset.fx; el.querySelector('.fxcorpo').innerHTML = fxCorpo(p);
+      el.querySelectorAll('[data-fx]').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.fx === S.fx)));
+    }));
   }
   let voltarFoco = null;
   function mostrarFicha(cod, { focar = false } = {}) {
@@ -178,15 +434,13 @@ WS.mapa = (function () {
     if (!S.sel && document.activeElement && document.activeElement !== document.body && !$('painel').contains(document.activeElement)) voltarFoco = document.activeElement;
     S.sel = cod;
     if (S.tabela) alternarTabela(false);
-    const l = porCamada[cod], big = innerWidth > 860;
-    map.fitBounds(l.getBounds(), { maxZoom: 8.5, paddingTopLeft: [40, 60], paddingBottomRight: [big ? 400 : 40, big ? 40 : 320] });
-    estilizar(); ficha();
+    estilizar(); ficha(); enquadrar();
     if (focar) $('painel').querySelector('h2').setAttribute('tabindex', '-1'), $('painel').querySelector('h2').focus();
     return true;
   }
   function fecharFicha() {
     const estavaNaFicha = $('painel').contains(document.activeElement);
-    S.sel = null; $('painel').style.display = 'none'; $('painel').innerHTML = ''; estilizar();
+    S.sel = null; $('painel').style.display = 'none'; $('painel').innerHTML = ''; $('mapwrap').classList.remove('com-ficha'); estilizar();
     if (estavaNaFicha || voltarFoco) { const alvo = voltarFoco && document.contains(voltarFoco) && voltarFoco.getClientRects().length ? voltarFoco : $('mapatitulo'); alvo.focus({ preventScroll: true }); }
     voltarFoco = null;
   }
@@ -197,6 +451,7 @@ WS.mapa = (function () {
     $('impressao').innerHTML = '<div class="ficha"><div style="font-size:10pt;color:#444">Violência contra a mulher na Paraíba · ficha do município</div>' + htmlFicha(p) +
       '<div class="rodape">Fonte: SINAN/TABNET (notificações de mulheres, município de residência, sem violência autoprovocada) e Censo 2022 (IBGE). ' +
       'Os números mostram casos notificados, não todos os que acontecem. Impresso em ' + hoje + '. Endereço: ' + esc(location.href.split('#')[0] + '#mapa-' + p.cod) + '</div></div>';
+    $('impressao').querySelectorAll('details').forEach(d => { d.open = true; });
     document.body.classList.add('imprimindo');
     const limpar = () => { document.body.classList.remove('imprimindo'); window.removeEventListener('afterprint', limpar); };
     window.addEventListener('afterprint', limpar);
@@ -218,7 +473,7 @@ WS.mapa = (function () {
   function abrirComparar(cods) {
     const ins = ['cmp1', 'cmp2', 'cmp3'].map(id => $(id));
     (cods || []).forEach((c, i) => { if (ins[i] && C.porCod[c]) ins[i].value = C.porCod[c].nome; });
-    $('cmpSub').textContent = 'Escolha 2 ou 3 municípios. Tipo e período seguem os filtros do mapa: ' + C.TIPOS[S.tipo] + ' · ' + C.nomePer(S.per) + '. A última coluna é a média do estado.';
+    $('cmpSub').textContent = 'Escolha 2 ou 3 municípios. Tipo e período seguem os filtros do mapa: ' + C.TIPOS[S.tipo] + ' · ' + C.nomePer(S.per) + '. A última coluna mostra a Paraíba inteira, para comparar.';
     if (!$('cmp').open) $('cmp').showModal();
     compararRender();
     const vazio = ins.find(i => !i.value); (vazio || ins[0]).focus();
@@ -228,13 +483,14 @@ WS.mapa = (function () {
     if (cods.length < 2) { $('cmpRes').innerHTML = '<p class="hint" style="margin:8px 0 0">Escolha pelo menos 2 municípios.</p>'; return; }
     const ps = cods.map(c => C.porCod[c]), t = S.tipo, per = S.per, totEst = C.casosEstado('total', per), totFxEst = C.casosEstado('total', 'all');
     const linha = (rot, vals, est, cls) => '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + rot + '</td>' + vals.map(v => '<td>' + v + '</td>').join('') + '<td class="ref">' + est + '</td></tr>';
-    const pct = (a, b) => (b ? nf(100 * a / b, 1) + '%' : '–');
-    let h = '<table data-tipo="' + t + '" data-per="' + per + '"><thead><tr><th>Indicador</th>' + ps.map(p => '<th data-c="' + p.cod + '">' + esc(p.nome) + (C.casos(p, t, per) < MIN_CASOS ? ' *' : '') + '</th>').join('') + '<th class="ref">Estado (referência)</th></tr></thead><tbody>';
+    const pct = (a, b) => (b ? np(100 * a / b) : '–');
+    let h = '<table data-tipo="' + t + '" data-per="' + per + '"><thead><tr><th>Indicador</th>' + ps.map(p => '<th data-c="' + p.cod + '">' + esc(p.nome) + (C.casos(p, t, per) < MIN_CASOS ? ' *' : '') + '</th>').join('') + '<th class="ref">Paraíba (referência)</th></tr></thead><tbody>';
     h += linha('Mulheres (Censo 2022)', ps.map(p => nf(p.pop)), nf(C.POP));
     h += linha('Casos notificados', ps.map(p => nf(C.casos(p, t, per))), nf(C.casosEstado(t, per)));
     h += linha('Taxa por 100 mil mulheres por ano', ps.map(p => nf(C.taxa(p, t, per), 1)), nf(C.taxaEstado(t, per), 1));
-    h += linha('Casos esperados se seguisse o estado', ps.map(p => nf(C.esperado(p, t, per), 1)), nf(C.casosEstado(t, per)));
-    h += linha('Observado ÷ esperado', ps.map(p => nf(C.oe(p, t, per), 2)), '1,00');
+    h += linha('Casos esperados se seguisse a média da Paraíba', ps.map(p => nf(C.esperado(p, t, per))), nf(C.casosEstado(t, per)));
+    h += linha('Comparação com a média da Paraíba (1 = igual)', ps.map(p => nf(C.oe(p, t, per), 2)), '1,00');
+    h += linha('Em palavras', ps.map(p => (C.casos(p, t, per) ? C.oeCurto(C.oe(p, t, per)) : 'nenhum caso')), 'média', 'palavras');
     h += '<tr class="grupo"><td colspan="' + (ps.length + 2) + '">Tipos de violência (% das notificações, ' + C.nomePer(per) + ')</td></tr>';
     ['fisica', 'psicologica', 'sexual'].forEach(k => { h += linha(C.TIPOS[k], ps.map(p => pct(C.casos(p, k, per), C.casos(p, 'total', per))), pct(C.casosEstado(k, per), totEst)); });
     h += '<tr class="grupo"><td colspan="' + (ps.length + 2) + '">Faixa etária (% das notificações, 2019 a 2024, todos os tipos)</td></tr>';
@@ -242,34 +498,173 @@ WS.mapa = (function () {
       const somaP = p => idx.reduce((s, i) => s + p.faixa[i], 0), totP = p => p.faixa.reduce((a, b) => a + b, 0);
       h += linha(rot, ps.map(p => pct(somaP(p), totP(p))), pct(idx.reduce((s, i) => s + C.faixaEstado[i], 0), totFxEst));
     });
-    h += '</tbody></table><p class="hint" style="margin-top:8px">* menos de 10 casos no período: valores instáveis. Tipos somam mais de 100% porque uma notificação pode ter mais de um tipo.</p>';
+    h += '</tbody></table><p class="hint" style="margin-top:8px">* Menos de 10 casos no período: valores instáveis. Os tipos somam mais de 100% porque uma notificação pode ter mais de um tipo.</p>';
     $('cmpRes').innerHTML = h;
+  }
+
+  // mesmos eventos para o polígono e para o círculo do município (destaque sempre no polígono)
+  function ligar(l, cod, poli) {
+    l.on('mousemove', e => {
+      if (ponteiro === 'touch') return;
+      const p = poli.feature.properties;
+      tip.style.display = 'block'; tip.textContent = p.nome + ' · ' + fmtValor(valor(p));
+      tip.style.left = (e.originalEvent.clientX + 14) + 'px'; tip.style.top = (e.originalEvent.clientY - 34) + 'px';
+      destacar(poli);
+    });
+    l.on('mouseout', () => { if (ponteiro !== 'touch') { esconderDica(); estilizar(); } });
+    // toque: o 1º toque mostra a etiqueta acima do município; o 2º no mesmo município abre a ficha
+    l.on('click', e => {
+      L.DomEvent.stopPropagation(e);
+      if (ponteiro === 'touch' && dicaCod !== cod) { estilizar(); destacar(poli); dicaPerto(poli, 'Toque de novo para abrir a ficha', 'toque'); dicaCod = cod; return; }
+      esconderDica(); location.hash = '#mapa-' + cod;
+    });
+  }
+
+  /* ---------- Baixar mapa (PNG): redesenha o mapa atual num canvas, com título, legenda e fonte ---------- */
+  function caminho(g, geom) {
+    const polis = geom.type === 'Polygon' ? [geom.coordinates] : geom.coordinates;
+    g.beginPath();
+    polis.forEach(pl => pl.forEach(anel => anel.forEach((c, i) => { const pt = map.latLngToContainerPoint([c[1], c[0]]); if (i) g.lineTo(pt.x, pt.y); else g.moveTo(pt.x, pt.y); })));
+  }
+  function padraoCanvas(g, cor) {
+    const t = document.createElement('canvas'); t.width = t.height = 8;
+    const k = t.getContext('2d'); k.fillStyle = cor; k.fillRect(0, 0, 8, 8);
+    const l = linhaHachura(cor); k.strokeStyle = l.cor; k.globalAlpha = l.op; k.lineWidth = 0.8;
+    [[0, 8, 8, 0], [-4, 4, 4, -4], [4, 12, 12, 4]].forEach(([a, b, c, d]) => { k.beginPath(); k.moveTo(a, b); k.lineTo(c, d); k.stroke(); });
+    return g.createPattern(t, 'repeat');
+  }
+  function quebrar(g, txt, x, y, larg, alt) {
+    let linha = '';
+    txt.split(' ').forEach(p => { const t = linha ? linha + ' ' + p : p; if (g.measureText(t).width > larg && linha) { g.fillText(linha, x, y); y += alt; linha = p; } else linha = t; });
+    if (linha) g.fillText(linha, x, y);
+    return y + alt;
+  }
+  async function baixarPNG() {
+    try {
+      if (document.fonts && document.fonts.ready) await document.fonts.ready;
+      const sz = map.getSize(), LEG = 300, TOPO = 78, BASE = 50, E = 2, W = sz.x + LEG, H = TOPO + Math.max(sz.y, 420) + BASE;
+      const cv = document.createElement('canvas'); cv.width = W * E; cv.height = H * E;
+      const g = cv.getContext('2d'); g.scale(E, E);
+      const sans = '"IBM Plex Sans", system-ui, sans-serif', serif = '"IBM Plex Serif", Georgia, serif';
+      g.fillStyle = cssM('--bg'); g.fillRect(0, 0, W, H);
+      g.fillStyle = cssM('--ink'); g.font = '600 21px ' + serif; g.fillText(TITULO_LEG[S.ind], 20, 34);
+      g.fillStyle = cssM('--ink-2'); g.font = '14px ' + sans; g.fillText(C.TIPOS[S.tipo] + ' · ' + C.nomePer(S.per) + ' · ' + (S.reg ? nomeReg(S.reg) : 'Paraíba') + (S.ind === 'oe' ? ' · considerando o número de mulheres' : ''), 20, 58);
+      // mapa
+      g.save(); g.translate(0, TOPO); g.beginPath(); g.rect(0, 0, sz.x, sz.y); g.clip();
+      g.fillStyle = cssM('--surface-2'); g.fillRect(0, 0, sz.x, sz.y);
+      const pad = {};
+      camada.eachLayer(l => {
+        const o = l.options, m = /url\(#hach-(\d)\)/.exec(o.fillColor || '');
+        caminho(g, l.feature.geometry);
+        g.globalAlpha = o.fillOpacity; g.fillStyle = m ? (pad[m[1]] = pad[m[1]] || padraoCanvas(g, cssM(CL.cores[+m[1]]))) : o.fillColor; g.fill('evenodd');
+        g.globalAlpha = 1; g.strokeStyle = o.color; g.lineWidth = o.weight; g.stroke();
+      });
+      [camRegioes, camEstado].forEach(cam => cam && cam.eachLayer(l => { const o = l.options; if (!o.opacity) return; caminho(g, l.feature.geometry); g.globalAlpha = o.opacity; g.strokeStyle = o.color; g.lineWidth = o.weight; g.stroke(); g.globalAlpha = 1; }));
+      grupoSimb.eachLayer(c => {
+        const pt = map.latLngToContainerPoint(c.getLatLng()), o = c.options;
+        g.beginPath(); g.arc(pt.x, pt.y, c.getRadius(), 0, 2 * Math.PI);
+        g.globalAlpha = o.fillOpacity; g.fillStyle = o.fillColor; g.fill(); g.globalAlpha = o.opacity; g.strokeStyle = o.color; g.lineWidth = o.weight; g.stroke(); g.globalAlpha = 1;
+      });
+      g.font = '600 12px ' + sans; g.lineJoin = 'round';
+      rotulos.forEach(mk => {
+        if (!mk.getElement() || mk.getElement().style.visibility === 'hidden') return;
+        const pt = map.latLngToContainerPoint(mk.getLatLng()), nome = mk.options.title, esq = mk.getElement().classList.contains('esq'), tx = esq ? pt.x - 6 - g.measureText(nome).width : pt.x + 6;
+        g.fillStyle = cssM('--ink'); if (S.ind !== 'casos') { g.beginPath(); g.arc(pt.x, pt.y, 2.5, 0, 2 * Math.PI); g.fill(); }
+        g.strokeStyle = cssM('--bg'); g.lineWidth = 3; g.strokeText(nome, tx, pt.y - 4); g.fillText(nome, tx, pt.y - 4);
+      });
+      // barra de escala
+      const y0 = sz.y / 2, m100 = map.distance(map.containerPointToLatLng([0, y0]), map.containerPointToLatLng([100, y0]));
+      const km = [1, 2, 5, 10, 20, 50, 100, 200].filter(k => k * 1000 / m100 * 100 <= 140).pop() || 1, px = km * 1000 / m100 * 100;
+      g.fillStyle = cssM('--ink-2'); g.fillRect(16, sz.y - 22, px, 2); g.fillRect(16, sz.y - 28, 1.5, 8); g.fillRect(16 + px - 1.5, sz.y - 28, 1.5, 8);
+      g.font = '12px ' + sans; g.fillText(km + ' km', 20 + px, sz.y - 18);
+      g.restore();
+      // legenda
+      let x = sz.x + 20, y = TOPO + 24;
+      g.fillStyle = cssM('--ink'); g.font = '600 14px ' + sans; y = quebrar(g, TITULO_LEG[S.ind], x, y, LEG - 36, 18) + 4;
+      g.font = '13px ' + sans;
+      const ps = C.F.map(f => f.properties).filter(noRecorte);
+      if (S.ind === 'casos' && ESC) {
+        const ref = [1, 10, 100, 1000, 10000].filter(v => v <= ESC.vmax).slice(-3);
+        ref.slice().reverse().forEach(v => {
+          const r = raio(v); y += r + 4;
+          g.beginPath(); g.arc(x + R_MAX, y, r, 0, 2 * Math.PI); g.globalAlpha = 0.4; g.fillStyle = cssM('--simbolo'); g.fill(); g.globalAlpha = 1;
+          g.strokeStyle = cssM('--ink-2'); g.lineWidth = 1; g.stroke(); g.fillStyle = cssM('--ink'); g.fillText(nf(v) + (v === 1 ? ' caso' : ' casos'), x + 2 * R_MAX + 12, y + 4); y += r + 6;
+        });
+        g.fillStyle = cssM('--ink-2'); g.font = '12px ' + sans; y = quebrar(g, 'O tamanho do círculo segue o número de casos.', x, y + 12, LEG - 36, 16);
+      } else {
+        const n = CL.cores.map(() => 0); ps.forEach(p => n[classeDe(valor(p))]++);
+        CL.rot.forEach((r, i) => { g.fillStyle = cssM(CL.cores[i]); g.fillRect(x, y - 10, 18, 12); g.fillStyle = cssM('--ink'); g.fillText(r + ' (' + nf(n[i]) + ')', x + 26, y); y += 20; });
+        g.fillStyle = padraoCanvas(g, cssM('--q2')); g.fillRect(x, y - 10, 18, 12); g.fillStyle = cssM('--ink');
+        g.fillText('Menos de 10 casos: valor instável (' + nf(ps.filter(p => casosSel(p) < MIN_CASOS).length) + ')', x + 26, y); y += 24;
+        g.fillStyle = cssM('--ink-2'); g.font = '12px ' + sans;
+        y = quebrar(g, (S.ind === 'taxa' ? 'Média da Paraíba: ' + nf(C.taxaEstado(S.tipo, S.per), 1) + ' casos por 100 mil mulheres por ano. Faixas fixas para qualquer período.'
+          : 'Limites das faixas: 0,5 · 0,8 · 1,25 · 2 (1 = igual à média). Nome técnico: observado ÷ esperado.') + ' Entre parênteses: municípios em cada faixa.', x, y, LEG - 36, 16);
+      }
+      // fonte
+      g.fillStyle = cssM('--ink-3'); g.font = '12px ' + sans;
+      g.fillText('Fonte: SINAN/TABNET (Ministério da Saúde), notificações de 2019 a 2024; IBGE, Censo 2022 e malha municipal. Gerado em ' + new Date().toLocaleDateString('pt-BR') + ' · github.com/AnaCAmim/TCC', 20, H - 20);
+      const nome = 'mapa_' + S.ind + '_' + S.tipo + '_' + (S.per === 'all' ? '2019-2024' : S.per) + (S.reg ? '_regiao' + S.reg : '') + '.png';
+      await new Promise((ok, erro) => cv.toBlob(b => {
+        if (!b) return erro(new Error('sem imagem'));
+        const url = URL.createObjectURL(b), a = document.createElement('a'); a.href = url; a.download = nome;
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000); ok();
+      }, 'image/png'));
+    } catch (e) {
+      WS.util.toast('Não foi possível gerar a imagem neste modo de abertura. Abra o painel pelo link publicado.');
+    }
+  }
+
+  // contornos (estado e regiões de saúde) e rótulos das cidades-polo: só referência; entram logo depois do primeiro desenho
+  function referencias() {
+    if (C.CONTORNOS) {
+      camRegioes = L.geoJSON({ type: 'FeatureCollection', features: C.CONTORNOS.regioes.map(r => ({ type: 'Feature', properties: { cod: r.cod }, geometry: r.geom })) },
+        { pane: 'regioes', renderer: L.svg({ pane: 'regioes' }), interactive: false, style: estiloRegiao }).addTo(map);
+      camEstado = L.geoJSON({ type: 'Feature', properties: {}, geometry: C.CONTORNOS.estado }, { pane: 'estado', renderer: L.svg({ pane: 'estado' }), interactive: false,
+        style: () => ({ fill: false, color: cssM('--ink'), weight: 2.4, opacity: 0.9 }) }).addTo(map);
+    }
+    rotulos = POLOS.map(n => C.F.find(f => f.properties.nome === n)).filter(Boolean).map(f => L.marker(centro[f.properties.cod], {
+      pane: 'rotulos', interactive: false, keyboard: false, title: f.properties.nome,
+      icon: L.divIcon({ className: 'rotulo', html: '<span>' + esc(f.properties.nome) + '</span>', iconSize: null, iconAnchor: [0, 0] }) }).addTo(map));
+    rotulos.forEach(m => { const el = m.getElement(); el.setAttribute('aria-hidden', 'true'); el.removeAttribute('title'); el.removeAttribute('tabindex'); });
+    estilizar(); arrumarRotulos();
   }
 
   /* ---------- início ---------- */
   function iniciar(calc) {
     C = calc;
-    map = L.map('map', { zoomSnap: 0.25, attributionControl: false, keyboard: true }).setView([-7.12, -36.8], 7.5);
+    map = L.map('map', { zoomSnap: 0.1, attributionControl: false, keyboard: true, maxBoundsViscosity: 0.9 }).setView([-7.12, -36.8], 7.5);
     tip = $('tip');
     const alfabetica = [...C.F].sort((a, b) => a.properties.nome.localeCompare(b.properties.nome, 'pt'));
     ORDEM = alfabetica.map(f => f.properties.cod);
     camada = L.geoJSON({ type: 'FeatureCollection', features: alfabetica }, { style: () => ({}), onEachFeature: (f, l) => {
-      const cod = f.properties.cod;
-      porCamada[cod] = l;
-      l.on('mousemove', e => {
-        if (ponteiro === 'touch') return;
-        tip.style.display = 'block'; tip.textContent = f.properties.nome + ' · ' + fmtValor(valor(f.properties));
-        tip.style.left = (e.originalEvent.clientX + 14) + 'px'; tip.style.top = (e.originalEvent.clientY - 34) + 'px';
-        destacar(l);
-      });
-      l.on('mouseout', () => { if (ponteiro !== 'touch') { esconderDica(); estilizar(); } });
-      // toque: o 1º toque mostra a etiqueta acima do município; o 2º no mesmo município abre a ficha
-      l.on('click', e => {
-        L.DomEvent.stopPropagation(e);
-        if (ponteiro === 'touch' && dicaCod !== cod) { estilizar(); destacar(l); dicaPerto(l, 'Toque de novo para abrir a ficha', 'toque'); dicaCod = cod; return; }
-        esconderDica(); location.hash = '#mapa-' + cod;
-      });
-    } }).addTo(map);
+      porCamada[f.properties.cod] = l;
+      centro[f.properties.cod] = centroide(f.geometry);
+      ligar(l, f.properties.cod, l);
+    } });
+    const Fonte = L.Control.extend({ options: { position: 'bottomleft' }, onAdd: () => { const d = L.DomUtil.create('div', 'fonte-mapa'); d.textContent = 'Fonte: SINAN/TABNET, 2019 a 2024; IBGE, Censo 2022 e malha municipal'; return d; } });
+    new Fonte().addTo(map);
+    L.control.scale({ position: 'bottomleft', imperial: false, maxWidth: 110 }).addTo(map);
+    // legenda como controle do mapa, acima da escala e da fonte: fica visível também com a ficha aberta
+    const Legenda = L.Control.extend({ options: { position: 'bottomleft' }, onAdd: () => { const d = $('leg'); L.DomEvent.disableClickPropagation(d); L.DomEvent.disableScrollPropagation(d); return d; } });
+    new Legenda().addTo(map);
+    $('leg').addEventListener('click', e => { if (e.target.closest('.leg-tog')) { legAberta = !legAberta; legenda(); reenquadrar(); } });
+    $('leg').addEventListener('toggle', e => { if (e.target.matches('details.leg-ler') && e.target.open !== lerAberto) { lerAberto = e.target.open; reenquadrar(); } }, true);
+    const Estado = L.Control.extend({ options: { position: 'topleft' }, onAdd: () => {
+      const d = L.DomUtil.create('div', 'leaflet-bar ctl-estado'), b = L.DomUtil.create('button', '', d);
+      b.type = 'button'; b.id = 'verEstado'; b.setAttribute('aria-label', 'Ver a Paraíba inteira'); b.title = 'Ver a Paraíba inteira'; b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square"/></svg>';
+      L.DomEvent.disableClickPropagation(d); b.addEventListener('click', () => enquadrar(estadoB));
+      return d; } });
+    new Estado().addTo(map);
+    // vista final calculada ANTES de pôr as camadas no mapa: cada geometria é projetada uma vez só (abertura mais leve)
+    estadoB = camada.getBounds();
+    CL = classes(); legenda();
+    map.fitBounds(estadoB, Object.assign(areaLivre(estadoB), { animate: false }));
+    zoomInicial = map.getZoom();
+    map.setMinZoom(Math.max(4, zoomInicial - 1.5)); map.setMaxZoom(11);
+    camada.addTo(map);
+    // referências: regiões de saúde, contorno do estado, círculos, rótulos das cidades-polo
+    [['regioes', 410], ['estado', 415], ['simbolos', 420], ['rotulos', 640]].forEach(([n, z]) => { const p = map.createPane(n); p.style.zIndex = z; if (n !== 'simbolos') p.style.pointerEvents = 'none'; });
+    rSimb = L.svg({ pane: 'simbolos' }); grupoSimb = L.layerGroup().addTo(map);
     // teclado: Tab percorre os municípios (ordem alfabética), a etiqueta aparece acima, Enter abre a ficha
     camada.eachLayer(l => {
       const el = l.getElement(), cod = l.feature.properties.cod;
@@ -287,15 +682,21 @@ WS.mapa = (function () {
     document.addEventListener('keydown', () => { ponteiro = 'teclado'; }, true);
     $('map').addEventListener('scroll', e => { e.target.scrollTop = 0; e.target.scrollLeft = 0; });   // o foco num polígono não pode rolar o mapa
     map.on('click movestart zoomstart', () => { if (dicaCod) { esconderDica(); estilizar(); } });
-    map.fitBounds(camada.getBounds(), { padding: [10, 10] });
+    limitarArraste();   // o arraste não sai da Paraíba (com margem)
+    map.on('zoomend moveend resize', arrumarRotulos);
+    map.on('dragstart', () => { vistaAuto = false; });
+    map.on('zoomstart', () => { if (!enquadrando) vistaAuto = false; });
 
     $('per').innerHTML = '<option value="all">2019 a 2024 (soma)</option>' + C.ANOS.map(a => '<option value="' + a + '">' + a + '</option>').join('');
     ['ind', 'tipo', 'per'].forEach(id => $(id).addEventListener('change', e => { S[id] = e.target.value; atualizar(); }));
     const porMacro = {};
     Object.entries(C.REG).forEach(([cod, r]) => (porMacro[r.macro] = porMacro[r.macro] || []).push(cod));
-    $('reg').innerHTML = '<option value="">Todo o estado</option>' + Object.keys(porMacro).sort().map(m => '<optgroup label="' + esc(m) + '">' +
+    $('reg').innerHTML = '<option value="">Toda a Paraíba</option>' + Object.keys(porMacro).sort().map(m => '<optgroup label="' + esc(m) + '">' +
       porMacro[m].map(c => '<option value="' + c + '">' + esc(C.REG[c].nome) + ' (' + C.munsRegiao(c).length + ' municípios)</option>').join('') + '</optgroup>').join('');
     $('reg').addEventListener('change', e => { S.reg = e.target.value; atualizar(); enquadrar(); });
+    $('verRegioes').addEventListener('change', e => { verRegioes = e.target.checked; estilizar(); });
+    $('destacarPoucos').addEventListener('change', e => { destacarPoucos = e.target.checked; estilizar(); legenda(); reenquadrar(); });
+    $('baixarPng').addEventListener('click', baixarPNG);
     $('lista').innerHTML = C.F.map(f => '<option value="' + esc(f.properties.nome) + '">').join('');
     const buscar = txt => {
       const c = acharCod(txt);
@@ -316,8 +717,19 @@ WS.mapa = (function () {
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && tip.style.display === 'block') esconderDica(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && !e.defaultPrevented && S.sel && !$('cmp').open && !e.target.closest('input,select')) { e.preventDefault(); location.hash = '#mapa'; } });
     atualizar();
-    return { S, mostrarFicha, fecharFicha, abrirComparar, imprimirFicha, alternarTabela, redesenhar: () => { estilizar(); legenda(); }, invalidar: () => map.invalidateSize(),
-      limitesMapa: () => map.getBounds() };
+    setTimeout(referencias, 0);   // divide o trabalho da abertura em duas tarefas curtas
+    // usado pelo tour: muda um filtro como se a pessoa tivesse escolhido na lista
+    const definir = (id, v) => { $(id).value = v; $(id).dispatchEvent(new Event('change')); };
+    const verFaixaTaxa = () => { const b = $('painel').querySelector('[data-fx=taxa]'); if (!b) return; b.closest('details').open = true; b.click(); b.closest('details').scrollIntoView({ block: 'start' }); };
+    return { S, mostrarFicha, fecharFicha, abrirComparar, imprimirFicha, alternarTabela, redesenhar: () => { estilizar(); legenda(); }, invalidar: () => map.invalidateSize(), definir, verFaixaTaxa,
+      limitesMapa: () => map.getBounds(),
+      resumo: (cod, tipo, per) => { const r = C.resumo(C.porCod[cod], tipo || S.tipo, per || S.per); return r.txt + ' ' + r.detalhe; },
+      // ganchos para o teste: escala dos símbolos, hachura e enquadramento
+      simbolos: () => ({ escala: ESC, raios: Object.fromEntries(grupoSimb.getLayers().map(c => [c.feature.properties.cod, c.getRadius()])),
+        ordem: grupoSimb.getLayers().map(c => c.feature.properties.cod) }),
+      enquadramento: () => { const ne = map.latLngToContainerPoint(estadoB.getNorthEast()), sw = map.latLngToContainerPoint(estadoB.getSouthWest()), sz = map.getSize();
+        return { x0: sw.x, x1: ne.x, y0: ne.y, y1: sw.y, w: sz.x, h: sz.y }; },
+      baixarPNG };
   }
   return { iniciar };
 })();

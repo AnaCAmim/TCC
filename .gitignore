@@ -1,4 +1,4 @@
-# Nunca publicar: notas do assistente, prompts, PDFs e arquivos pessoais
+# Arquivos de trabalho local e pessoais (não publicar)
 CLAUDE.md
 PROMPT_*.md
 *.pdf
@@ -9,10 +9,10 @@ PROMPT_*.md
 __pycache__/
 *.pyc
 
-# Versões antigas do front (só para uso local)
+# Cópias locais
 backup/
 
-# Capturas: os testes regeram tudo a cada execução. Só as usadas no README vão para o repositório.
+# Capturas: os testes regeram tudo a cada execução; só uma seleção vai para o repositório.
 capturas/*
 !capturas/1366_claro_mapa_ficha.png
 !capturas/1366_claro_analise.png
@@ -21,3 +21,35 @@ capturas/*
 !capturas/celular_claro_mapa_ficha.png
 !capturas/regiao_saude_filtro.png
 !capturas/mapa_foco_teclado.png
+!capturas/ficha_faixa_taxa.png
+!capturas/ficha_rede_munic.png
+!capturas/ficha_local_atendimento.png
+!capturas/analise_local_atendimento.png
+!capturas/analise_faixa_taxa.png
+!capturas/sobre_o_painel.png
+!capturas/tour_passo4.png
+!capturas/estado_erro.png
+!capturas/celular_escuro_mapa_ficha.png
+!capturas/1366_escuro_analise.png
+!capturas/mapa_simbolos_casos.png
+!capturas/mapa_exportado_casos.png
+!capturas/1366_claro_ficha_sume.png
+!capturas/1366_escuro_ficha_sume.png
+!capturas/celular_claro_ficha_sume.png
+!capturas/celular_escuro_ficha_sume.png
+!capturas/ficha_resumo_sume.png
+!capturas/ficha_resumo_sousa.png
+!capturas/ficha_resumo_joao_pessoa.png
+!capturas/1366_claro_mapa_taxa.png
+!capturas/1366_claro_mapa_oe.png
+!capturas/1366_claro_mapa_casos.png
+!capturas/1366_escuro_mapa_taxa.png
+!capturas/1366_escuro_mapa_oe.png
+!capturas/1366_escuro_mapa_casos.png
+!capturas/celular_claro_mapa_taxa.png
+!capturas/celular_claro_mapa_oe.png
+!capturas/celular_claro_mapa_casos.png
+!capturas/celular_escuro_mapa_taxa.png
+!capturas/celular_escuro_mapa_oe.png
+!capturas/celular_escuro_mapa_casos.png
+!capturas/mapa_ficha_enquadrada.png

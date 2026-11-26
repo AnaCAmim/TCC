@@ -42,6 +42,37 @@ SELECT m.cod_ibge6, o.faixa_id, o.faixa, COALESCE(s.casos, 0)
 FROM municipio m CROSS JOIN ordem_faixa o
 LEFT JOIN st_fx s ON s.cod_ibge6 = m.cod_ibge6 AND s.faixa = o.faixa;
 
+-- Mulheres por faixa etária (SIDRA 9514, resposta bruta da API). Os grupos de 5 anos do IBGE são somados nas faixas do SINAN:
+-- "1 a 4" = "0 a 4 anos" − "Menos de 1 ano"; "60 e mais" = soma dos grupos de 60 anos em diante. "-" do IBGE = 0.
+CREATE TEMP TABLE st_sidra AS
+SELECT s->'localidade'->>'id' AS cod_ibge7,
+       (SELECT k FROM jsonb_object_keys(c->'categoria') AS k) AS categoria,
+       CASE WHEN s->'serie'->>'2022' ~ '^[0-9]+$' THEN (s->'serie'->>'2022')::int WHEN s->'serie'->>'2022' = '-' THEN 0 END AS valor
+FROM jsonb_array_elements(pg_read_file('/websig/dados/brutos/ibge_sidra9514_mulheres_idade_pb_2022.json')::jsonb->0->'resultados') r
+CROSS JOIN LATERAL jsonb_array_elements(r->'classificacoes') c
+CROSS JOIN LATERAL jsonb_array_elements(r->'series') s
+WHERE c->>'id' = '287';
+CREATE TEMP TABLE idade_para_faixa (categoria text, faixa_id smallint, sinal int);   -- códigos de idade do IBGE (classificação 287)
+INSERT INTO idade_para_faixa VALUES
+  ('6557', 1, 1),                                    -- Menos de 1 ano
+  ('93070', 2, 1), ('6557', 2, -1),                  -- 1 a 4 = (0 a 4) − (menos de 1)
+  ('93084', 3, 1), ('93085', 4, 1), ('93086', 5, 1), -- 5-9, 10-14, 15-19
+  ('93087', 6, 1), ('93088', 6, 1),                  -- 20-29
+  ('93089', 7, 1), ('93090', 7, 1),                  -- 30-39
+  ('93091', 8, 1), ('93092', 8, 1),                  -- 40-49
+  ('93093', 9, 1), ('93094', 9, 1),                  -- 50-59
+  ('93095', 10, 1), ('93096', 10, 1), ('93097', 10, 1), ('93098', 10, 1), ('49108', 10, 1),
+  ('49109', 10, 1), ('60040', 10, 1), ('60041', 10, 1), ('6653', 10, 1);   -- 60 e mais
+INSERT INTO populacao_faixa (cod_ibge7, faixa_id, faixa, mulheres)
+SELECT s.cod_ibge7, m.faixa_id, o.faixa, SUM(s.valor * m.sinal)
+FROM st_sidra s JOIN idade_para_faixa m USING (categoria) JOIN ordem_faixa o USING (faixa_id)
+GROUP BY s.cod_ibge7, m.faixa_id, o.faixa;
+
+-- Rede de atendimento declarada na MUNIC 2023 (extraída da planilha do IBGE por pipeline/extrair_munic2023.py)
+CREATE TEMP TABLE st_rede (cod_ibge7 text, municipio text, organismo text, centro text, abrigo text, delegacia text);
+\copy st_rede FROM 'dados/brutos/ibge_munic2023_rede_atendimento_pb.csv' CSV HEADER
+INSERT INTO rede_atendimento SELECT cod_ibge7, organismo, centro, abrigo, delegacia FROM st_rede;
+
 -- Região de saúde (DATASUS, Base Territorial jun/2026; arquivos originais, Brasil inteiro, filtrados aqui para a PB)
 CREATE TEMP TABLE st_mun_reg (co_municip text, co_regsaud text);
 \copy st_mun_reg FROM 'dados/brutos/datasus_base_territorial_jun26/rl_municip_regsaud.csv' CSV HEADER DELIMITER ';'
@@ -61,6 +92,26 @@ JOIN st_mun_reg mr ON mr.co_municip = m.cod_ibge6
 JOIN st_reg r      ON r.co_regsaud = mr.co_regsaud AND r.co_status = 'S'
 JOIN st_reg_mac rm ON rm.co_regsaud = r.co_regsaud
 JOIN st_mac mc     ON mc.co_macsaud = rm.co_macsaud AND mc.co_status = 'S';
+
+-- Local de notificação (TABNET violepb: linha = município de residência; colunas = as 16 regiões de saúde de notificação, 25001 a 25016, nessa ordem)
+CREATE TEMP TABLE st_local (mun text, r01 text, r02 text, r03 text, r04 text, r05 text, r06 text, r07 text, r08 text, r09 text, r10 text, r11 text, r12 text, r13 text, r14 text, r15 text, r16 text, total text);
+\copy st_local FROM 'dados/brutos/sinan_pb_mulheres_residencia_x_regiao_notificacao_2019-2024.csv' CSV HEADER DELIMITER ';'
+CREATE TEMP TABLE st_local_longo AS
+SELECT left(mun, 6) AS cod_ibge6, '250' || lpad(g.i::text, 2, '0') AS co_regsaud, CASE WHEN g.v = '-' THEN 0 ELSE g.v::int END AS casos
+FROM st_local, unnest(ARRAY[r01, r02, r03, r04, r05, r06, r07, r08, r09, r10, r11, r12, r13, r14, r15, r16]) WITH ORDINALITY AS g(v, i)
+WHERE mun ~ '^[0-9]{6} ';
+WITH pb AS (
+  SELECT l.cod_ibge6,
+         SUM(l.casos) FILTER (WHERE l.co_regsaud = r.cod_regiao)  AS mesma,
+         SUM(l.casos) FILTER (WHERE l.co_regsaud <> r.cod_regiao) AS outra
+  FROM st_local_longo l JOIN regiao_saude r USING (cod_ibge6) GROUP BY l.cod_ibge6),
+res AS (SELECT cod_ibge6, SUM(casos)::int AS total FROM notificacao WHERE tipo = 'total' GROUP BY cod_ibge6)
+INSERT INTO notificacao_local (cod_ibge6, categoria, local, casos)
+SELECT res.cod_ibge6, 1, 'mesma região de saúde', COALESCE(pb.mesma, 0) FROM res LEFT JOIN pb USING (cod_ibge6)
+UNION ALL
+SELECT res.cod_ibge6, 2, 'outra região da PB', COALESCE(pb.outra, 0) FROM res LEFT JOIN pb USING (cod_ibge6)
+UNION ALL
+SELECT res.cod_ibge6, 3, 'fora da Paraíba', res.total - COALESCE(pb.mesma, 0) - COALESCE(pb.outra, 0) FROM res LEFT JOIN pb USING (cod_ibge6);
 
 -- Conferências: param a carga se algo não bater
 DO $$
@@ -87,8 +138,35 @@ BEGIN
     RAISE EXCEPTION 'regiao_saude: % municipios, % regioes, % macrorregioes (esperado 223, 16 e 3)', linhas, div, n_mac; END IF;
   SELECT count(*) INTO div FROM regiao_saude r JOIN st_mun_mac mm ON mm.co_municip = r.cod_ibge6 WHERE mm.co_macsaud <> r.cod_macro;
   IF div <> 0 THEN RAISE EXCEPTION '% municipios com macrorregiao diferente nas duas tabelas do DATASUS', div; END IF;
+  SELECT count(*) INTO div FROM st_sidra WHERE valor IS NULL;
+  IF div <> 0 THEN RAISE EXCEPTION 'SIDRA 9514: % valores nao numericos', div; END IF;
+  SELECT count(*), count(DISTINCT cod_ibge7), sum(mulheres) INTO linhas, n_mac, p FROM populacao_faixa;
+  IF linhas <> 223 * 10 OR n_mac <> 223 OR p <> 2055832 THEN
+    RAISE EXCEPTION 'populacao_faixa: % linhas, % municipios, % mulheres (esperado 2230, 223 e 2055832)', linhas, n_mac, p; END IF;
+  SELECT count(*) INTO div FROM populacao q
+  WHERE q.pop_fem_2022 <> (SELECT sum(mulheres) FROM populacao_faixa f WHERE f.cod_ibge7 = q.cod_ibge7)
+     OR q.pop_fem_2022 <> (SELECT valor FROM st_sidra s WHERE s.cod_ibge7 = q.cod_ibge7 AND s.categoria = '100362');
+  IF div <> 0 THEN RAISE EXCEPTION '% municipios com soma das faixas diferente do total de mulheres', div; END IF;
+  SELECT count(*) INTO div FROM populacao_faixa WHERE mulheres < 0;
+  IF div <> 0 THEN RAISE EXCEPTION '% faixas com populacao negativa', div; END IF;
+  SELECT count(*) INTO linhas FROM rede_atendimento;
+  IF linhas <> 223 THEN RAISE EXCEPTION 'rede_atendimento: % municipios (esperado 223)', linhas; END IF;
+  -- local de notificação: cada linha do TABNET soma o próprio total; três categorias = casos por residência
+  SELECT count(*) INTO div FROM st_local
+  WHERE (SELECT SUM(CASE WHEN v = '-' THEN 0 ELSE v::int END) FROM unnest(ARRAY[r01, r02, r03, r04, r05, r06, r07, r08, r09, r10, r11, r12, r13, r14, r15, r16]) v) <> total::int;
+  IF div <> 0 THEN RAISE EXCEPTION 'local de notificacao: % linhas do TABNET em que as regioes nao somam o total', div; END IF;
+  SELECT count(*) INTO div FROM st_local WHERE mun ~ '^[0-9]{6} ' AND left(mun, 6) NOT IN (SELECT cod_ibge6 FROM municipio);
+  IF div <> 0 THEN RAISE EXCEPTION 'local de notificacao: % municipios desconhecidos', div; END IF;
+  SELECT count(*) INTO div FROM (
+    SELECT n.cod_ibge6 FROM notificacao n WHERE n.tipo = 'total' GROUP BY n.cod_ibge6
+    HAVING SUM(n.casos) <> (SELECT SUM(casos) FROM notificacao_local l WHERE l.cod_ibge6 = n.cod_ibge6)) x;
+  IF div <> 0 THEN RAISE EXCEPTION 'local de notificacao: % municipios em que as tres categorias nao somam os casos por residencia', div; END IF;
+  SELECT count(*), SUM(casos), SUM(casos) FILTER (WHERE categoria = 3) INTO linhas, c, fx FROM notificacao_local;
+  IF linhas <> 223 * 3 OR c <> 10344 OR fx <> 10344 - (SELECT total::int FROM st_local WHERE mun = 'Total') THEN
+    RAISE EXCEPTION 'local de notificacao: % linhas, % casos, % fora da PB (esperado 669, 10344 e 10344 menos o total notificado na PB)', linhas, c, fx; END IF;
+  RAISE NOTICE 'Local de notificacao OK: % casos, dos quais % notificados fora da Paraiba', c, fx;
   SELECT count(*) INTO div FROM municipio WHERE NOT ST_IsValid(geom);
   IF div <> 0 THEN RAISE EXCEPTION '% geometrias invalidas', div; END IF;
-  RAISE NOTICE 'Carga OK: % municipios, % casos, % mulheres, 16 regioes de saude', n, c, p;
+  RAISE NOTICE 'Carga OK: % municipios, % casos, 2055832 mulheres (total e por faixa), 16 regioes de saude, rede MUNIC 2023', n, c;
 END $$;
 ANALYZE;

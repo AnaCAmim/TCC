@@ -7,7 +7,7 @@ Gerado por `testes/gerar_material_teste.py` a partir de `web/dados.json`. Fonte:
 
 ## T1 · Gestora estadual
 
-**Tarefa:** A Secretaria quer saber onde a notificação está mais abaixo do esperado. Encontre os 3 municípios com o menor valor de observado ÷ esperado, considerando só os que têm pelo menos 10 casos (todos os tipos, 2019 a 2024).
+**Tarefa:** A Secretaria quer saber onde a notificação está mais abaixo da média da Paraíba. Encontre os 3 municípios mais abaixo na comparação com a média da Paraíba, considerando só os que têm pelo menos 10 casos (todos os tipos, 2019 a 2024).
 
 **Resposta certa:** 1º Sousa (0,09; 15 casos); 2º Aroeiras (0,21; 10 casos); 3º Brejo do Cruz (0,28; 10 casos)
 
@@ -15,9 +15,9 @@ Gerado por `testes/gerar_material_teste.py` a partir de `web/dados.json`. Fonte:
 
 ## T2 · Gestora municipal
 
-**Tarefa:** Você trabalha em Sousa. Abra a ficha do município e diga se a taxa de notificação está acima ou abaixo da média do estado.
+**Tarefa:** Você trabalha em Sousa. Abra a ficha do município e diga se a taxa de notificação está acima ou abaixo da média da Paraíba.
 
-**Resposta certa:** Abaixo. Sousa: 7,2 por 100 mil mulheres por ano; estado: 83,9 (observado ÷ esperado = 0,09).
+**Resposta certa:** Abaixo. Sousa: 7,2 por 100 mil mulheres por ano; média da Paraíba: 83,9 (observado ÷ esperado = 0,09).
 
 **Critério:** Acerto: dizer "abaixo" (ou "notifica menos") olhando a ficha. Tempo-limite sugerido: 3 min.
 
@@ -35,13 +35,13 @@ Gerado por `testes/gerar_material_teste.py` a partir de `web/dados.json`. Fonte:
 
 **Resposta certa:** Sim, cresceu: de 423 casos em 2019 para 675 em 2024 (+60%).
 
-**Critério:** Acerto: "sim" com base no painel (gráfico, conclusões ou filtro do mapa). Tempo-limite sugerido: 3 min.
+**Critério:** Acerto: "sim" com base no painel (gráfico, principais resultados ou filtro do mapa). Tempo-limite sugerido: 3 min.
 
 ## T5 · Todos
 
 **Tarefa:** Você vai levar os dados para uma reunião. Baixe a tabela dos municípios ou imprima a ficha de um município.
 
-**Resposta certa:** Arquivo CSV com 223 municípios (aba Análise → Baixar CSV) ou ficha impressa/salva em PDF (ficha → Imprimir ficha).
+**Resposta certa:** Arquivo CSV com 223 municípios (aba Análise → Baixar tabela (CSV)) ou ficha impressa/salva em PDF (ficha → Imprimir ficha).
 
 **Critério:** Acerto: arquivo baixado ou janela de impressão aberta com a ficha. Tempo-limite sugerido: 3 min.
 
@@ -49,10 +49,12 @@ Gerado por `testes/gerar_material_teste.py` a partir de `web/dados.json`. Fonte:
 
 | Tarefa | Ações | Caminho |
 |---|---|---|
-| T1 | 2 | Indicador "Observado ÷ esperado" → ranking "10 menores" |
-| T2 | 1 | Buscar município: digitar "Sousa" e Enter (a ficha mostra a taxa, a média do estado e "Notifica menos que a média do estado") |
+| T1 | 2 | Indicador "Comparação com a média da Paraíba" → ranking "10 menores" |
+| T2 | 1 | Buscar município: digitar "Sousa" e Enter (a ficha mostra a taxa ao lado da média da Paraíba e "Muito abaixo da média") |
 | T3 | 1 | Buscar "Campina Grande" e Enter (a ficha escreve "Faixa mais atingida: …") |
-| T4 | 1 | Aba Análise (bloco "O que os dados mostram") |
-| T5 | 2 | Aba Análise → Baixar CSV; ou buscar o município → Imprimir ficha |
+| T4 | 1 | Aba Análise (bloco "Principais resultados") |
+| T5 | 2 | Aba Análise → Baixar tabela (CSV); ou buscar o município → Imprimir ficha |
+
+Na primeira visita, a tela "Sobre o painel" abre sozinha e fecha com 1 clique (Começar): é 1 ação a mais, só uma vez.
 
 Fonte: `testes/testar_usabilidade.py` (registro em `capturas/piloto_tarefas.json`, gerado pelos testes).

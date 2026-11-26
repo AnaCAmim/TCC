@@ -89,6 +89,51 @@ difs = [f"{r['periodo']} {r['tipo']}" for r in somas if int(r["est"]) != int(r["
 check(len(somas) == len(TIPOS) * (len(ANOS) + 1) and not difs, f"view da região: as 16 regiões somam o estado em cada período e tipo ({difs[:3]})")
 check(all(p.get("reg") in dj.get("regioes", {}) for p in feats.values()) and len(dj.get("regioes", {})) == 16, "dados.json: todo município tem uma das 16 regiões de saúde")
 
+# Mulheres por faixa etária (SIDRA 9514): 223 × 10 faixas; soma de cada município = total; estado = 2.055.832
+pf = consulta("SELECT cod_ibge7, faixa_id, mulheres FROM websig.populacao_faixa")
+soma_pf = {}
+for r in pf:
+    soma_pf[r["cod_ibge7"]] = soma_pf.get(r["cod_ibge7"], 0) + int(r["mulheres"])
+check(len(pf) == TOTAL_MUNICIPIOS * 10 and len(soma_pf) == TOTAL_MUNICIPIOS, f"populacao_faixa: {len(pf)} linhas (esperado {TOTAL_MUNICIPIOS * 10})")
+check(all(soma_pf[c] == pop_bruto[c][1] for c in pop_bruto), "populacao_faixa: soma das faixas = mulheres do município (IBGE), nos 223")
+check(sum(soma_pf.values()) == TOTAL_MULHERES, f"populacao_faixa: estado soma {sum(soma_pf.values())} (esperado {TOTAL_MULHERES})")
+# Taxa por faixa na view = casos ÷ mulheres × 100.000 ÷ 6; "Ignorada" sem taxa
+vf = consulta("SELECT cod_ibge7, faixa_id, casos, mulheres, taxa_100mil_ano FROM websig.vw_faixa_municipio")
+erro_fx = [r for r in vf if int(r["faixa_id"]) <= 10 and abs(float(r["taxa_100mil_ano"]) - int(r["casos"]) / int(r["mulheres"]) * 100000 / 6) > 1e-6]
+ign_ok = all(r["taxa_100mil_ano"] in ("", None) for r in vf if int(r["faixa_id"]) == 11)
+check(len(vf) == TOTAL_MUNICIPIOS * 11 and not erro_fx and ign_ok, f"vw_faixa_municipio: taxa por faixa = fórmula ({len(erro_fx)} divergências; Ignorada sem taxa: {ign_ok})")
+# Rede de atendimento (MUNIC 2023) = arquivo bruto, valores exatamente como na MUNIC
+rede_bruto = {r["cod_ibge7"]: r for r in ler("ibge_munic2023_rede_atendimento_pb.csv")}
+rede = consulta("SELECT * FROM websig.rede_atendimento")
+COLS_REDE = ["organismo_politicas_mulheres", "centro_referencia", "casa_abrigo", "delegacia_mulher"]
+dif_rede = [r["cod_ibge7"] for r in rede if any(r[k] != rede_bruto[r["cod_ibge7"]][k] for k in COLS_REDE)]
+check(len(rede) == TOTAL_MUNICIPIOS and not dif_rede and all(r[k] in ("Sim", "Não", "-") for r in rede for k in COLS_REDE),
+      f"rede_atendimento: 223 municípios iguais à MUNIC 2023 ({len(dif_rede)} diferenças)")
+check(all(feats[c]["popfx"] == [int(r["mulheres"]) for r in sorted((x for x in pf if x["cod_ibge7"] == c), key=lambda x: int(x["faixa_id"]))] for c in list(feats)[:223])
+      and all(feats[c]["rede"] == {k: rede_bruto[c][k] for k in COLS_REDE} for c in feats), "dados.json: mulheres por faixa e rede MUNIC iguais ao banco")
+
+# Local de notificação: as três categorias somam os casos por residência em todos os municípios e no estado
+loc = consulta("SELECT cod_ibge7, categoria, casos, total, pct FROM websig.vw_local_atendimento")
+res = {}
+for r in consulta("SELECT m.cod_ibge7, SUM(n.casos) AS c FROM websig.notificacao n JOIN websig.municipio m USING (cod_ibge6) WHERE n.tipo = 'total' GROUP BY m.cod_ibge7"):
+    res[r["cod_ibge7"]] = int(r["c"])
+soma_loc = {}
+for r in loc:
+    soma_loc[r["cod_ibge7"]] = soma_loc.get(r["cod_ibge7"], 0) + int(r["casos"])
+check(len(loc) == TOTAL_MUNICIPIOS * 3 and soma_loc == res, f"local de notificação: as 3 categorias somam os casos por residência nos {len(soma_loc)} municípios")
+with open(BRUTOS / "sinan_pb_mulheres_residencia_x_regiao_notificacao_2019-2024.csv", encoding="utf-8") as f:
+    total_pb = int([l for l in f if l.startswith('"Total"')][0].strip().split(";")[-1])
+fora = sum(int(r["casos"]) for r in loc if r["categoria"] == "3")
+check(sum(soma_loc.values()) == TOTAL_CASOS and fora == TOTAL_CASOS - total_pb, f"local de notificação: estado {sum(soma_loc.values())} casos; fora da PB {fora} = {TOTAL_CASOS} − {total_pb}")
+err_pct = [r for r in loc if int(r["total"]) and abs(float(r["pct"]) - int(r["casos"]) * 100 / int(r["total"])) > 1e-6]
+check(not err_pct and all(feats[r["cod_ibge7"]]["local"][int(r["categoria"]) - 1] == int(r["casos"]) for r in loc),
+      f"local de notificação: % da view = fórmula e dados.json igual ao banco ({len(err_pct)} divergências)")
+
+# Contornos de referência do mapa (só desenho): estado e as 16 regiões de saúde
+ct = dj.get("contornos", {})
+check(ct.get("estado", {}).get("type") in ("Polygon", "MultiPolygon") and sorted(r["cod"] for r in ct.get("regioes", [])) == sorted(dj["regioes"]),
+      "dados.json: contorno do estado e das 16 regiões de saúde para o mapa")
+
 print(f"Teste dos dados: {len(ok)} verificações OK, {len(falhas)} falhas")
 for f in falhas:
     print("  FALHA:", f)

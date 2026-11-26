@@ -1,14 +1,14 @@
-# Roteiro do teste com usuários (20 minutos)
+# Roteiro do Teste com Usuários (20 Minutos)
 
 Painel de indicadores de violência contra a mulher na Paraíba (SINAN 2019–2024). Sessão individual, presencial ou remota (videochamada com compartilhamento de tela).
 
-> **[CONFIRMAR COM ORIENTADOR]** Precisamos submeter ao Comitê de Ética em Pesquisa (Plataforma Brasil)? A Resolução CNS nº 510/2016 dispensa de registro no sistema CEP/Conep algumas pesquisas de opinião sem identificação do participante (art. 1º, parágrafo único) [VERIFICAR o inciso que se aplica]. Este teste avalia o sistema, não as pessoas, e não coleta nome nem dado sensível, mas a decisão é do orientador. Não começar as sessões antes dessa resposta.
+> **Ética.** O teste avalia o sistema, não as pessoas, e não coleta nome nem dado sensível. A Resolução CNS nº 510/2016 (art. 1º, parágrafo único) dispensa de registro no sistema CEP/Conep algumas pesquisas sem identificação dos participantes. As sessões só começam depois de definida, com a orientação, a necessidade de submissão ao Comitê de Ética em Pesquisa.
 
 ## Participantes e preparo
 
-- 5 pessoas do público-alvo: gestoras ou técnicos de saúde, assistência social ou políticas para mulheres (plano: `docs/websig_plano.md`, seção 3).
+- 5 pessoas do público-alvo: gestoras ou técnicos de saúde, assistência social ou políticas para mulheres.
 - Material: este roteiro; `02_tarefas_e_respostas.md` (gabarito, só para quem conduz); `03_questionario_SUS.md`; `04_perguntas_abertas.md`; `05_termo_consentimento.md`; `planilha_registro.xlsx`; cronômetro.
-- Antes de cada sessão: abrir o painel na **página inicial** (Mapa, sem município aberto), num navegador atualizado, tela de pelo menos 1366 px. No remoto, mandar o link e pedir que a pessoa compartilhe a tela.
+- Antes de cada sessão: abrir o painel numa **janela anônima** (assim a tela "Sobre o painel" aparece como na primeira visita), na página inicial, num navegador atualizado, tela de pelo menos 1366 px. No remoto, mandar o link e pedir que a pessoa compartilhe a tela.
 - Código do participante: P01, P02… Não anotar o nome na planilha.
 
 ## Tempo
@@ -33,7 +33,7 @@ Leva uns 20 minutos. Não gravo seu nome. [Ler o termo de consentimento.] Podemo
 
 ## 2. Aquecimento
 
-"Olhe a tela à vontade por um minuto e me diga o que acha que dá para fazer aqui." Não corrigir nada. Anotar a primeira impressão em Observações de T1.
+Deixar a pessoa ler a tela "Sobre o painel" e fechá-la quando quiser (anotar se ela leu, pulou ou abriu o tour). Depois: "Olhe a tela à vontade por um minuto e me diga o que acha que dá para fazer aqui." Não corrigir nada. Anotar a primeira impressão em Observações de T1.
 
 ## 3. Tarefas (pensar em voz alta)
 
@@ -46,8 +46,8 @@ Regras para quem conduz:
 - Registrar na aba Tarefas: acerto (Sim / Parcial / Não), tempo em segundos, resposta dada e observações (hesitações, caminho tentado, frases ditas).
 
 Tarefas (resumo; texto completo e gabarito no arquivo 02):
-1. **T1:** 3 municípios com o menor observado ÷ esperado, entre os que têm pelo menos 10 casos.
-2. **T2:** ficha de Sousa: acima ou abaixo da média do estado?
+1. **T1:** os 3 municípios mais abaixo na comparação com a média da Paraíba, entre os que têm pelo menos 10 casos.
+2. **T2:** ficha de Sousa: acima ou abaixo da média da Paraíba?
 3. **T3:** faixa etária mais atingida em Campina Grande.
 4. **T4:** a violência sexual cresceu de 2019 a 2024?
 5. **T5:** baixar a tabela ou imprimir a ficha de um município.

@@ -21,7 +21,7 @@ SAIDA = RAIZ / "docs" / "teste_usuarios"
 SAIDA.mkdir(parents=True, exist_ok=True)
 DADOS = json.loads((RAIZ / "web" / "dados.json").read_text(encoding="utf-8"))
 R = respostas_certas(DADOS)
-N_PART = 5        # participantes previstos no plano (docs/websig_plano.md, seção 3)
+N_PART = 5        # participantes previstos no plano de avaliação
 LINHAS_EXTRA = 5  # linhas de reserva para participantes a mais
 
 
@@ -33,13 +33,13 @@ faixa = lambda f: f.replace("-", " a ") + " anos"
 t1 = R["T1"]["municipios"]
 TAREFAS = [
     ("T1", "Gestora estadual",
-     "A Secretaria quer saber onde a notificação está mais abaixo do esperado. Encontre os 3 municípios com o menor valor de "
-     "observado ÷ esperado, considerando só os que têm pelo menos 10 casos (todos os tipos, 2019 a 2024).",
+     "A Secretaria quer saber onde a notificação está mais abaixo da média da Paraíba. Encontre os 3 municípios mais abaixo na "
+     "comparação com a média da Paraíba, considerando só os que têm pelo menos 10 casos (todos os tipos, 2019 a 2024).",
      "; ".join(f"{i + 1}º {m['nome']} ({fmt(m['oe'], 2)}; {m['casos']} casos)" for i, m in enumerate(t1)),
      "Acerto: os 3 nomes, em qualquer ordem. Parcial: 1 ou 2 nomes."),
     ("T2", "Gestora municipal",
-     "Você trabalha em Sousa. Abra a ficha do município e diga se a taxa de notificação está acima ou abaixo da média do estado.",
-     f"Abaixo. Sousa: {fmt(R['T2']['taxa_sousa'], 1)} por 100 mil mulheres por ano; estado: {fmt(R['T2']['taxa_estado'], 1)} "
+     "Você trabalha em Sousa. Abra a ficha do município e diga se a taxa de notificação está acima ou abaixo da média da Paraíba.",
+     f"Abaixo. Sousa: {fmt(R['T2']['taxa_sousa'], 1)} por 100 mil mulheres por ano; média da Paraíba: {fmt(R['T2']['taxa_estado'], 1)} "
      f"(observado ÷ esperado = {fmt(R['T2']['oe'], 2)}).",
      "Acerto: dizer \"abaixo\" (ou \"notifica menos\") olhando a ficha."),
     ("T3", "Técnico da vigilância",
@@ -49,10 +49,10 @@ TAREFAS = [
     ("T4", "Técnico da vigilância",
      "No estado, a violência sexual notificada cresceu de 2019 para 2024?",
      f"Sim, cresceu: de {fmt(R['T4']['sexual_2019'])} casos em 2019 para {fmt(R['T4']['sexual_2024'])} em 2024 (+{R['T4']['variacao_pct']}%).",
-     "Acerto: \"sim\" com base no painel (gráfico, conclusões ou filtro do mapa)."),
+     "Acerto: \"sim\" com base no painel (gráfico, principais resultados ou filtro do mapa)."),
     ("T5", "Todos",
      "Você vai levar os dados para uma reunião. Baixe a tabela dos municípios ou imprima a ficha de um município.",
-     f"Arquivo CSV com {R['T5']['linhas_csv']} municípios (aba Análise → Baixar CSV) ou ficha impressa/salva em PDF (ficha → Imprimir ficha).",
+     f"Arquivo CSV com {R['T5']['linhas_csv']} municípios (aba Análise → Baixar tabela (CSV)) ou ficha impressa/salva em PDF (ficha → Imprimir ficha).",
      "Acerto: arquivo baixado ou janela de impressão aberta com a ficha."),
 ]
 
@@ -67,11 +67,12 @@ for cod, persona, txt, resp, crit in TAREFAS:
     md += [f"## {cod} · {persona}", "", f"**Tarefa:** {txt}", "", f"**Resposta certa:** {resp}", "", f"**Critério:** {crit} Tempo-limite sugerido: 3 min.", ""]
 md += ["## Caminho mais curto no painel (teste-piloto automatizado)", "",
        "| Tarefa | Ações | Caminho |", "|---|---|---|",
-       "| T1 | 2 | Indicador \"Observado ÷ esperado\" → ranking \"10 menores\" |",
-       "| T2 | 1 | Buscar município: digitar \"Sousa\" e Enter (a ficha mostra a taxa, a média do estado e \"Notifica menos que a média do estado\") |",
+       "| T1 | 2 | Indicador \"Comparação com a média da Paraíba\" → ranking \"10 menores\" |",
+       "| T2 | 1 | Buscar município: digitar \"Sousa\" e Enter (a ficha mostra a taxa ao lado da média da Paraíba e \"Muito abaixo da média\") |",
        "| T3 | 1 | Buscar \"Campina Grande\" e Enter (a ficha escreve \"Faixa mais atingida: …\") |",
-       "| T4 | 1 | Aba Análise (bloco \"O que os dados mostram\") |",
-       "| T5 | 2 | Aba Análise → Baixar CSV; ou buscar o município → Imprimir ficha |", "",
+       "| T4 | 1 | Aba Análise (bloco \"Principais resultados\") |",
+       "| T5 | 2 | Aba Análise → Baixar tabela (CSV); ou buscar o município → Imprimir ficha |", "",
+       "Na primeira visita, a tela \"Sobre o painel\" abre sozinha e fecha com 1 clique (Começar): é 1 ação a mais, só uma vez.", "",
        "Fonte: `testes/testar_usabilidade.py` (registro em `capturas/piloto_tarefas.json`, gerado pelos testes).", ""]
 (SAIDA / "02_tarefas_e_respostas.md").write_text("\n".join(md), encoding="utf-8")
 
@@ -110,7 +111,7 @@ linhas = [
     ("Aba Resumo: taxa de acerto e tempo por tarefa, nota SUS média. Atualiza sozinha.", fonte),
     ("", fonte),
     ("Exemplo de preenchimento (não é dado real; não copie para as outras abas):", negrito),
-    ("  Tarefas → P01 | T2 | Sim | 48 | Não | \"Achei pela busca; li 'notifica menos que a média'.\"", fonte),
+    ("  Tarefas → P01 | T2 | Sim | 48 | Não | \"Achei pela busca; li 'muito abaixo da média'.\"", fonte),
     ("  SUS → P01 | 4 | 2 | 4 | 1 | 4 | 2 | 5 | 2 | 4 | 2  → nota calculada 80,0", fonte),
 ]
 for i, (t, f) in enumerate(linhas, start=1):
@@ -209,7 +210,7 @@ for j, (rot, fo, nfmt) in enumerate(extra, start=9):
     ws.cell(row=j, column=1, value=rot).font = negrito
     ws.merge_cells(start_row=j, start_column=1, end_row=j, end_column=3)
     c = ws.cell(row=j, column=4, value=fo); c.font, c.number_format, c.border = fonte, nfmt, borda
-ws.cell(row=14, column=1, value="Leitura: a média 68, muito citada, ainda não foi conferida na fonte original [VERIFICAR]. Com 5 participantes, a média é só indicativa. Itens: versão brasileira de Lourenço, Carmona e Lopes (2022).").font = Font(name=F, size=9, italic=True)
+ws.cell(row=14, column=1, value="Leitura: a nota não é uma porcentagem. Com 5 participantes, a média é só indicativa. Itens: versão brasileira de Lourenço, Carmona e Lopes (2022).").font = Font(name=F, size=9, italic=True)
 
 wb.save(SAIDA / "planilha_registro.xlsx")
 print("Material gerado em", SAIDA)
