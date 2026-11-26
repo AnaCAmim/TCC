@@ -1,11 +1,11 @@
-# Termo de consentimento livre e esclarecido
+# Termo de Consentimento Livre e Esclarecido
 
-> **[CONFIRMAR COM ORIENTADOR]** Se o teste precisa passar pelo Comitê de Ética em Pesquisa e se este termo serve como está. Se o Comitê for necessário, este texto deve ser trocado pelo modelo aprovado por ele.
+> Modelo de termo. Se a pesquisa for submetida ao Comitê de Ética em Pesquisa, este texto será substituído pelo modelo aprovado pelo Comitê.
 
 **Pesquisa:** Avaliação de usabilidade de um painel de indicadores de violência contra a mulher na Paraíba
 **Responsável:** Ana Clara Mendes Amim, estudante de Sistemas de Informação, UFPB, Campus IV (Rio Tinto)
 **Orientador:** Prof. Dr. José Adson Oliveira Guedes da Cunha
-**Contato:** [e-mail institucional da pesquisadora]
+**Contato:** e-mail institucional da pesquisadora, informado no início da sessão
 
 Você está sendo convidado(a) a participar do teste de um painel na internet que mostra dados públicos e agregados de notificação de violência contra a mulher nos municípios da Paraíba. O objetivo é saber se o painel é fácil de usar para gestores e técnicos.
 
@@ -29,6 +29,6 @@ Código do participante: P____  Data: ___/___/______
 
 Assinatura (se presencial): ______________________________________
 
-*No remoto:* a pesquisadora lê o termo e registra na planilha a data e a resposta "aceito" dita pelo participante. [CONFIRMAR COM ORIENTADOR] se o aceite verbal é suficiente.
+*No remoto:* a pesquisadora lê o termo e registra na planilha a data e a resposta "aceito" dita pelo participante.
 
 Uma cópia deste termo fica com o(a) participante.

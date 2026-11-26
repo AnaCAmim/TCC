@@ -1,8 +1,8 @@
-# Roteiro do teste com usuários (20 minutos)
+# Roteiro do Teste com Usuários (20 Minutos)
 
 Painel de indicadores de violência contra a mulher na Paraíba (SINAN 2019–2024). Sessão individual, presencial ou remota (videochamada com compartilhamento de tela).
 
-> **[CONFIRMAR COM ORIENTADOR]** Precisamos submeter ao Comitê de Ética em Pesquisa (Plataforma Brasil)? A Resolução CNS nº 510/2016 dispensa de registro no sistema CEP/Conep algumas pesquisas de opinião sem identificação do participante (art. 1º, parágrafo único) [VERIFICAR o inciso que se aplica]. Este teste avalia o sistema, não as pessoas, e não coleta nome nem dado sensível, mas a decisão é do orientador. Não começar as sessões antes dessa resposta.
+> **Ética.** O teste avalia o sistema, não as pessoas, e não coleta nome nem dado sensível. A Resolução CNS nº 510/2016 (art. 1º, parágrafo único) dispensa de registro no sistema CEP/Conep algumas pesquisas sem identificação dos participantes. As sessões só começam depois de definida, com a orientação, a necessidade de submissão ao Comitê de Ética em Pesquisa.
 
 ## Participantes e preparo
 
@@ -46,7 +46,7 @@ Regras para quem conduz:
 - Registrar na aba Tarefas: acerto (Sim / Parcial / Não), tempo em segundos, resposta dada e observações (hesitações, caminho tentado, frases ditas).
 
 Tarefas (resumo; texto completo e gabarito no arquivo 02):
-1. **T1:** 3 municípios com o menor observado ÷ esperado, entre os que têm pelo menos 10 casos.
+1. **T1:** os 3 municípios mais abaixo na comparação com a média da Paraíba, entre os que têm pelo menos 10 casos.
 2. **T2:** ficha de Sousa: acima ou abaixo da média da Paraíba?
 3. **T3:** faixa etária mais atingida em Campina Grande.
 4. **T4:** a violência sexual cresceu de 2019 a 2024?

@@ -1,4 +1,4 @@
-# Escala de Usabilidade de Sistema (SUS) — versão brasileira
+# Escala de Usabilidade de Sistema (SUS): Versão Brasileira
 
 Participante: P____  Data: ___/___/______
 
@@ -29,8 +29,8 @@ Pense no painel que você acabou de usar. Para cada afirmação, marque um núme
 
 Exemplo: notas 4, 2, 4, 1, 4, 2, 5, 2, 4, 2 → (3+3+3+4+3+3+4+3+3+3) × 2,5 = **80,0**. Brooke avisa que a nota de cada item sozinho não tem significado: só o total.
 
-**Leitura:** a nota não é porcentagem. É comum citar 68 como a média de muitos estudos (acima disso, usabilidade acima da média), mas essa fonte ainda não foi conferida no original **[VERIFICAR]** (a conferência das referências está no texto do TCC). Com 5 participantes, use a média só como indicação.
+**Leitura:** a nota não é uma porcentagem. Com 5 participantes, a média serve só como indicação; o mais útil são os problemas observados durante as tarefas.
 
 **Referências (ABNT):**
-- BROOKE, J. SUS: a "quick and dirty" usability scale. In: JORDAN, P. W.; THOMAS, B.; WEERDMEESTER, B. A.; McCLELLAND, I. L. (ed.). *Usability evaluation in industry*. London: Taylor & Francis, 1996. p. 189-194. [VERIFICAR paginação no livro; o conteúdo foi conferido na cópia do autor]
+- BROOKE, J. SUS: a "quick and dirty" usability scale. In: JORDAN, P. W.; THOMAS, B.; WEERDMEESTER, B. A.; McCLELLAND, I. L. (ed.). *Usability evaluation in industry*. London: Taylor & Francis, 1996. p. 189-194.
 - LOURENÇO, D. F.; CARMONA, E. V.; LOPES, M. H. B. M. Tradução e adaptação transcultural da System Usability Scale para o português do Brasil. *Aquichan*, Chía, v. 22, n. 2, e2228, abr./jun. 2022. DOI: https://doi.org/10.5294/aqui.2022.22.2.8.

@@ -49,7 +49,7 @@ TAREFAS = [
     ("T4", "Técnico da vigilância",
      "No estado, a violência sexual notificada cresceu de 2019 para 2024?",
      f"Sim, cresceu: de {fmt(R['T4']['sexual_2019'])} casos em 2019 para {fmt(R['T4']['sexual_2024'])} em 2024 (+{R['T4']['variacao_pct']}%).",
-     "Acerto: \"sim\" com base no painel (gráfico, conclusões ou filtro do mapa)."),
+     "Acerto: \"sim\" com base no painel (gráfico, principais resultados ou filtro do mapa)."),
     ("T5", "Todos",
      "Você vai levar os dados para uma reunião. Baixe a tabela dos municípios ou imprima a ficha de um município.",
      f"Arquivo CSV com {R['T5']['linhas_csv']} municípios (aba Análise → Baixar tabela (CSV)) ou ficha impressa/salva em PDF (ficha → Imprimir ficha).",
@@ -70,7 +70,7 @@ md += ["## Caminho mais curto no painel (teste-piloto automatizado)", "",
        "| T1 | 2 | Indicador \"Comparação com a média da Paraíba\" → ranking \"10 menores\" |",
        "| T2 | 1 | Buscar município: digitar \"Sousa\" e Enter (a ficha mostra a taxa ao lado da média da Paraíba e \"Muito abaixo da média\") |",
        "| T3 | 1 | Buscar \"Campina Grande\" e Enter (a ficha escreve \"Faixa mais atingida: …\") |",
-       "| T4 | 1 | Aba Análise (bloco \"Leituras prontas\") |",
+       "| T4 | 1 | Aba Análise (bloco \"Principais resultados\") |",
        "| T5 | 2 | Aba Análise → Baixar tabela (CSV); ou buscar o município → Imprimir ficha |", "",
        "Na primeira visita, a tela \"Sobre o painel\" abre sozinha e fecha com 1 clique (Começar): é 1 ação a mais, só uma vez.", "",
        "Fonte: `testes/testar_usabilidade.py` (registro em `capturas/piloto_tarefas.json`, gerado pelos testes).", ""]
@@ -210,7 +210,7 @@ for j, (rot, fo, nfmt) in enumerate(extra, start=9):
     ws.cell(row=j, column=1, value=rot).font = negrito
     ws.merge_cells(start_row=j, start_column=1, end_row=j, end_column=3)
     c = ws.cell(row=j, column=4, value=fo); c.font, c.number_format, c.border = fonte, nfmt, borda
-ws.cell(row=14, column=1, value="Leitura: a média 68, muito citada, ainda não foi conferida na fonte original [VERIFICAR]. Com 5 participantes, a média é só indicativa. Itens: versão brasileira de Lourenço, Carmona e Lopes (2022).").font = Font(name=F, size=9, italic=True)
+ws.cell(row=14, column=1, value="Leitura: a nota não é uma porcentagem. Com 5 participantes, a média é só indicativa. Itens: versão brasileira de Lourenço, Carmona e Lopes (2022).").font = Font(name=F, size=9, italic=True)
 
 wb.save(SAIDA / "planilha_registro.xlsx")
 print("Material gerado em", SAIDA)

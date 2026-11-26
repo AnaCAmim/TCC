@@ -1,4 +1,4 @@
-# Perguntas abertas (final da sessão)
+# Perguntas Abertas (Final da Sessão)
 
 Fazer as duas perguntas depois do SUS, nesta ordem. Anotar a resposta com as palavras da pessoa na aba **Abertas** da `planilha_registro.xlsx`. Se a resposta for curta, perguntar: "Pode dar um exemplo?". Não sugerir respostas.
 

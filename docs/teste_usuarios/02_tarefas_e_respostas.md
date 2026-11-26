@@ -35,7 +35,7 @@ Gerado por `testes/gerar_material_teste.py` a partir de `web/dados.json`. Fonte:
 
 **Resposta certa:** Sim, cresceu: de 423 casos em 2019 para 675 em 2024 (+60%).
 
-**Critério:** Acerto: "sim" com base no painel (gráfico, conclusões ou filtro do mapa). Tempo-limite sugerido: 3 min.
+**Critério:** Acerto: "sim" com base no painel (gráfico, principais resultados ou filtro do mapa). Tempo-limite sugerido: 3 min.
 
 ## T5 · Todos
 
@@ -52,7 +52,7 @@ Gerado por `testes/gerar_material_teste.py` a partir de `web/dados.json`. Fonte:
 | T1 | 2 | Indicador "Comparação com a média da Paraíba" → ranking "10 menores" |
 | T2 | 1 | Buscar município: digitar "Sousa" e Enter (a ficha mostra a taxa ao lado da média da Paraíba e "Muito abaixo da média") |
 | T3 | 1 | Buscar "Campina Grande" e Enter (a ficha escreve "Faixa mais atingida: …") |
-| T4 | 1 | Aba Análise (bloco "Leituras prontas") |
+| T4 | 1 | Aba Análise (bloco "Principais resultados") |
 | T5 | 2 | Aba Análise → Baixar tabela (CSV); ou buscar o município → Imprimir ficha |
 
 Na primeira visita, a tela "Sobre o painel" abre sozinha e fecha com 1 clique (Começar): é 1 ação a mais, só uma vez.
