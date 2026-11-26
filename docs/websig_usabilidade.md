@@ -4,16 +4,16 @@ Este documento reúne a avaliação da interface do painel e as mudanças feitas
 
 Última atualização: 22/11/2026.
 
-**Conteúdo:** 1. Método · 2. Situação atual · 3. Avaliação heurística e de acessibilidade · 4. Teste-piloto automatizado das tarefas · 5. Compatibilidade entre navegadores · 6. Limitações da avaliação e próximos passos · 7. Histórico das revisões de interface · 8. Referências
+**Conteúdo:** 1. Método · 2. Situação atual · 3. Avaliação heurística e de acessibilidade · 4. Teste automatizado das tarefas · 5. Compatibilidade entre navegadores · 6. Limitações da avaliação · 7. Histórico das revisões de interface · 8. Referências
 
 ## 1. Método
 
 A avaliação combinou quatro procedimentos.
 
-1. **Inspeção heurística.** As telas e o código foram revistos pelas 10 heurísticas de Nielsen (1993). Cada problema recebeu uma gravidade de 0 a 4: 0 = não é problema; 1 = cosmético; 2 = pequeno; 3 = grande, a corrigir antes do teste com usuários; 4 = catástrofe, impede a tarefa.
+1. **Inspeção heurística.** As telas e o código foram revistos pelas 10 heurísticas de Nielsen (1993). Cada problema recebeu uma gravidade de 0 a 4: 0 = não é problema; 1 = cosmético; 2 = pequeno; 3 = grande, a corrigir com prioridade; 4 = catástrofe, impede a tarefa.
 2. **Conformidade com a WCAG 2.1 nível AA** (W3C, 2018). Contraste, foco visível, uso pelo teclado, nomes acessíveis, refluxo em 320 px e alternativas ao mapa são medidos por testes automatizados com Playwright (`testes/testar_usabilidade.py` e `testes/testar_front.py`), que rodam a cada atualização dos dados.
 3. **Cartografia e cor.** As escalas seguem as paletas do ColorBrewer (Harrower; Brewer, 2003) e as recomendações da Datawrapper Academy. Uma escala sequencial vai do claro (baixo) ao escuro (alto), também no tema escuro, porque o leitor tende a ler a cor mais escura como "mais" (*dark-is-more bias*, Schiewe, 2024). As escalas foram conferidas em simulações de daltonismo (Machado; Oliveira; Fernandes, 2009) e em escala de cinza.
-4. **Teste-piloto automatizado** das 5 tarefas preparadas para o teste com usuários (seção 4), com o caminho mais curto e a conferência da resposta mostrada na tela.
+4. **Teste automatizado de tarefas.** Cinco tarefas de consulta ao painel (seção 4), percorridas pelo caminho mais curto, com a conferência da resposta mostrada na tela.
 
 O desempenho foi medido com o Lighthouse 12.6 ([`docs/lighthouse/`](lighthouse/)), e os testes rodam no Chrome, no Firefox e no WebKit, o motor do Safari.
 
@@ -31,12 +31,12 @@ O desempenho foi medido com o Lighthouse 12.6 ([`docs/lighthouse/`](lighthouse/)
 | Teclado | WCAG 2.1.1 e 2.4.3 | Todos os controles e os 223 municípios do mapa são alcançáveis pelo Tab; Enter abre a ficha; Esc fecha a ficha e devolve o foco |
 | Refluxo | WCAG 1.4.10 (320 px) | Sem rolagem lateral em 320 px; no celular de 390×844, o mapa começa a 814 px do topo, antes do fim da primeira tela |
 | Linguagem | Leitura rápida por gestores sem formação em estatística | A referência é sempre a média da Paraíba; a comparação com a média aparece em palavras ("4,6 vezes a média", "cerca de 1/10 do esperado"); a frase-resumo da ficha é calculada e testada nas 6.244 combinações de município, tipo e período |
-| Testes automatizados | Chrome, Firefox e WebKit | Dados: 67 verificações. Painel: 169 no Chrome e 168 no Firefox e no WebKit. Usabilidade: 34. Nenhuma falha |
+| Testes automatizados | Chrome, Firefox e WebKit | Dados: 67 verificações. Painel: 169 no Chrome e 168 no Firefox e no WebKit. Usabilidade: 33. Nenhuma falha |
 | Lighthouse | Celular e computador, servidor com compressão | Desempenho 98 (celular) e 100 (computador); Acessibilidade, Boas práticas e SEO 100 nos dois |
 
 ## 3. Avaliação Heurística e de Acessibilidade
 
-Problemas encontrados na inspeção de 18/11/2026, antes do teste com usuários, e a correção de cada um.
+Problemas encontrados na inspeção de 18/11/2026 e a correção de cada um.
 
 | # | Problema | Heurística / critério | Gravidade | Correção |
 |---|---|---|---|---|
@@ -57,7 +57,7 @@ Problemas encontrados na inspeção de 18/11/2026, antes do teste com usuários,
 | 15 | No Safari (WebKit), o Tab pula links por padrão: o "Pular para o conteúdo", o ranking e os links "como calcular" ficavam fora do teclado. | WCAG 2.1.1 Teclado | 2 | `tabindex="0"` explícito nesses links. |
 | 16 | No Firefox, com a lista de sugestões aberta num campo da comparação, o 1º Esc fecha a lista e só o 2º fecha a janela. | H3 Controle e liberdade | 0 | Comportamento padrão do navegador, mantido. O botão Fechar continua disponível. |
 
-## 4. Teste-Piloto Automatizado das Tarefas
+## 4. Teste Automatizado das Tarefas
 
 Cada tarefa parte da página inicial (Mapa, sem município aberto). Uma ação é um clique, uma escolha numa lista ou digitar um nome e teclar Enter. O teste (`testes/testar_usabilidade.py`) segue o caminho mais curto e compara a resposta mostrada na tela com a calculada diretamente de `web/dados.json`.
 
@@ -70,23 +70,21 @@ Cada tarefa parte da página inicial (Mapa, sem município aberto). Uma ação �
 | T5 · baixar a tabela | 2 | Aba Análise → Baixar tabela | CSV com os 223 municípios |
 | T5 · imprimir a ficha | 2 | Buscar o município e teclar Enter → Imprimir ficha | Folha limpa só com a ficha |
 
-Nenhuma tarefa passa de 2 ações. Na primeira visita há 1 ação a mais, uma única vez: fechar a tela "Sobre o painel". O piloto mede o caminho mais curto, mas não diz se uma pessoa o encontra sozinha. Isso só o teste com usuários mostra (material em [`docs/teste_usuarios/`](teste_usuarios/)).
+Nenhuma tarefa passa de 2 ações. Na primeira visita há 1 ação a mais, uma única vez: fechar a tela "Sobre o painel". O teste mede o caminho mais curto; não mede se uma pessoa o encontra sozinha.
 
 ## 5. Compatibilidade entre Navegadores
 
 | Navegador (Playwright) | `testar_front.py` | `testar_usabilidade.py` | Ajustes |
 |---|---|---|---|
-| Chrome instalado | 169 verificações, 0 falhas | 34, 0 falhas | — |
-| Firefox | 168, 0 falhas | 34, 0 falhas | Nenhum no painel. No Firefox, o primeiro Esc fecha a lista de sugestões do campo (problema 16). O Firefox do Playwright não emula `is_mobile`; o celular foi testado com tela pequena e toque |
-| WebKit (motor do Safari) | 168, 0 falhas | 34, 0 falhas | Links com `tabindex="0"` (problema 15). No teste, o toque usa um ponto dentro do polígono do município, porque o centro da caixa pode cair no município vizinho |
+| Chrome instalado | 169 verificações, 0 falhas | 33, 0 falhas | — |
+| Firefox | 168, 0 falhas | 33, 0 falhas | Nenhum no painel. No Firefox, o primeiro Esc fecha a lista de sugestões do campo (problema 16). O Firefox do Playwright não emula `is_mobile`; o celular foi testado com tela pequena e toque |
+| WebKit (motor do Safari) | 168, 0 falhas | 33, 0 falhas | Links com `tabindex="0"` (problema 15). No teste, o toque usa um ponto dentro do polígono do município, porque o centro da caixa pode cair no município vizinho |
 
-A cópia para a área de transferência (Copiar link) e o PDF da ficha só são conferidos no Chrome, porque os outros navegadores do Playwright não liberam essas funções nos testes. Por isso o Chrome tem uma verificação a mais.
+A cópia para a área de transferência (Copiar link) só é conferida no Chrome, porque os outros navegadores do Playwright não liberam essa função nos testes; por isso o Chrome tem uma verificação a mais. O PDF da ficha também só é gerado no Chrome.
 
-## 6. Limitações da Avaliação e Próximos Passos
+## 6. Limitações da Avaliação
 
 A avaliação foi feita por inspeção e por testes automatizados; ainda não houve teste com leitor de tela real (NVDA ou VoiceOver) nem em Safari num aparelho Apple, embora o WebKit passe em todos os testes. Pelo teclado, os 223 municípios do mapa vêm depois do ranking na ordem do Tab; quem não quiser percorrê-los pode usar a busca ou "Ver como tabela", e com o filtro de região só os municípios da região entram nessa ordem.
-
-O próximo passo é o teste com 5 pessoas do público-alvo (gestoras e técnicos de saúde, de assistência social e de políticas para mulheres), com o roteiro, as tarefas com gabarito, o questionário SUS e a planilha de registro de [`docs/teste_usuarios/`](teste_usuarios/). As sessões só começam depois de definida, com a orientação, a necessidade de submissão ao Comitê de Ética em Pesquisa (Resolução CNS nº 510/2016).
 
 ## 7. Histórico das Revisões de Interface
 
@@ -110,7 +108,7 @@ Revisão de acabamento da interface antes da apresentação do trabalho, sem nov
 | A10 | Não havia roteiro para demonstrar o painel em poucos minutos. | H10; apoio à apresentação | 1 | Botão **"Tour"**: 6 passos (mapa da taxa → observado ÷ esperado → ficha de Sousa → faixa etária em taxa → Análise → Como calcular), cada um com uma frase, Anterior/Próximo, setas ← → e Esc; ao sair, o foco volta ao botão. |
 | A11 | Abrir o painel montava as três telas de uma vez: no celular simulado, 380 ms de bloqueio e Desempenho 75 no Lighthouse. | Eficiência; tempo de resposta | 2 | Análise e Como calcular só são montadas na primeira vez que se abre a aba; "Sobre o painel" abre sem esperar os dados; o aviso de carregamento não desloca o layout; meta description. Lighthouse: celular 99, computador 100 (ver [`docs/lighthouse/`](lighthouse/)). |
 
-Teste-piloto depois do acabamento: as tarefas continuam com 1 ou 2 ações. Na primeira visita há 1 ação a mais (fechar "Sobre o painel"), só uma vez.
+Teste automatizado das tarefas depois do acabamento: as tarefas continuam com 1 ou 2 ações. Na primeira visita há 1 ação a mais (fechar "Sobre o painel"), só uma vez.
 
 ### 7.2 Visual de Relatório Técnico (20/11/2026)
 

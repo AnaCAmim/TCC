@@ -1,4 +1,4 @@
-"""Respostas certas das 5 tarefas do teste com usuários, calculadas só do web/dados.json (mesmas fórmulas da tela Como calcular)."""
+"""Respostas certas das 5 tarefas do teste automatizado (testar_usabilidade.py), calculadas só do web/dados.json (mesmas fórmulas da tela Como calcular)."""
 
 
 def respostas_certas(dados):
